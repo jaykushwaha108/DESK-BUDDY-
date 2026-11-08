@@ -47,6 +47,7 @@ WebServer server(80);
 
 // Current active face mode
 String currentFace = "idle";
+String bdayName = "Jay";
 unsigned long lastAnimUpdate = 0;
 int animFrame = 0;
 
@@ -528,11 +529,25 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <div class="desc">XX Knockout</div>
     </div>
 
-    <!-- 13. Happy Birthday Abhishek -->
-    <div class="card" onclick="setFace('birthday', 'HBD Abhishek 🎂', this)" style="background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(236,72,153,0.2)); border-color: rgba(255,215,0,0.4);">
-      <span class="emoji">🎂</span>
-      <div class="title" style="color:#fbbf24;">Birthday</div>
-      <div class="desc">HBD Abhishek!</div>
+    <!-- 13. Happy Birthday with Custom Name Box -->
+    <div class="card" id="card_birthday" onclick="selectBirthday(this)" style="grid-column: 1 / -1; background: linear-gradient(135deg, rgba(255,215,0,0.18), rgba(236,72,153,0.22)); border-color: rgba(255,215,0,0.45); padding: 12px 14px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="emoji" style="margin:0; font-size:30px;">🎂</span>
+          <div style="text-align:left;">
+            <div class="title" style="color:#fbbf24; font-size:14px;">Happy Birthday</div>
+            <div class="desc">Screen 1: HAPPY • 2: BIRTHDAY • 3: Name</div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;" onclick="event.stopPropagation()">
+          <input type="text" id="bdayInput" maxlength="10" placeholder="NAME" value="JAY"
+                 style="background:rgba(9, 13, 22, 0.85); border:1px solid #fbbf24; color:#f8fafc; border-radius:8px; padding:6px 8px; font-size:13px; font-weight:800; width:110px; text-align:center; text-transform:uppercase; outline:none;"
+                 oninput="handleBdayInput(this.value)">
+          <button onclick="saveAndPlayBday()" style="background:linear-gradient(135deg, #fbbf24, #f43f5e); border:none; border-radius:8px; color:#fff; font-weight:700; padding:7px 12px; font-size:12px; cursor:pointer; box-shadow:0 0 10px rgba(251,191,36,0.3);">
+            Play 🎂
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Diwali Celebration -->
@@ -556,12 +571,12 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <div class="desc">Skyshot & Fireworks</div>
     </div>
 
-    <!-- 14. Dead Pixel Diagnostic Test -->
-    <div class="card test-card" onclick="setFace('pixel_test', 'Dead Pixel Test', this)">
-      <span class="emoji">🧪</span>
+    <!-- 14. Torch Mode (Flashlight - All Pixels Full Brightness) -->
+    <div class="card test-card" onclick="setFace('torch', 'Torch (Full Light) 🔦', this)" style="background: linear-gradient(135deg, rgba(254, 240, 138, 0.2), rgba(250, 204, 21, 0.25)); border-color: rgba(250, 204, 21, 0.6);">
+      <span class="emoji">🔦</span>
       <div>
-        <div class="title">Pixel Diagnostics Mode</div>
-        <div class="desc">All Pixels White & Black Test to spot dead/stuck pixels</div>
+        <div class="title" style="color:#fef08a;">Torch Mode (Full Light)</div>
+        <div class="desc">All 100% OLED Pixels White at Maximum Brightness</div>
       </div>
     </div>
   </div>
@@ -589,7 +604,8 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       { id: 'birthday', name: '🎂 Birthday' },
       { id: 'diwali', name: '🪔 Diwali Celebration' },
       { id: 'ram', name: '🏹 Jai Shri Ram' },
-      { id: 'fireworks', name: '🎆 Patake/Fireworks' }
+      { id: 'fireworks', name: '🎆 Patake/Fireworks' },
+      { id: 'torch', name: '🔦 Torch (Full Light)' }
     ];
 
     var currentPlaylist = [
@@ -791,9 +807,44 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       fetch('/set?face=' + face).catch(err => console.log(err));
     }
 
+    function handleBdayInput(val) {
+      if (val.length > 10) val = val.substring(0, 10);
+      fetch('/setbday?name=' + encodeURIComponent(val)).catch(function(e) {});
+    }
+
+    function saveAndPlayBday() {
+      var inp = document.getElementById('bdayInput');
+      var name = inp ? inp.value.trim() : 'JAY';
+      if (name.length > 10) name = name.substring(0, 10);
+      if (name.length === 0) name = 'JAY';
+      if (inp) inp.value = name.toUpperCase();
+
+      handleBdayInput(name);
+      var card = document.getElementById('card_birthday');
+      setFace('birthday', 'HBD ' + name.toUpperCase() + ' 🎂', card);
+    }
+
+    function selectBirthday(el) {
+      var inp = document.getElementById('bdayInput');
+      var name = (inp && inp.value.trim().length > 0) ? inp.value.trim() : 'JAY';
+      setFace('birthday', 'HBD ' + name.toUpperCase() + ' 🎂', el);
+    }
+
+    function loadSavedBday() {
+      fetch('/getbday')
+        .then(function(r) { return r.text(); })
+        .then(function(name) {
+          if (name && name.length > 0) {
+            var inp = document.getElementById('bdayInput');
+            if (inp) inp.value = name.toUpperCase();
+          }
+        }).catch(function(e) {});
+    }
+
     window.addEventListener('DOMContentLoaded', function() {
       renderPlaylistUI();
       syncTimeWithDevice();
+      loadSavedBday();
       setInterval(syncTimeWithDevice, 30000);
     });
   </script>
@@ -1061,183 +1112,201 @@ void drawDizzyFace(int frame) {
   display.fillRoundRect(62, 50, 8, 8, 3, SSD1306_WHITE);
 }
 
-// 13. Pixel Diagnostics (Full White & Checkerboard test)
-void drawPixelTestMode(int frame) {
-  int phase = (frame / 15) % 3; // Har phase ~1.5 sec chalega
-
-  display.clearDisplay();
-  if (phase == 0) {
-    // Phase 1: All Pixels ON (White) -> Spot Dead Pixels
-    display.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, SSD1306_WHITE);
-  } else if (phase == 1) {
-    // Phase 2: All Pixels OFF (Black) -> Spot Stuck Pixels
-    // Kept fully black
-  } else {
-    // Phase 3: Checkerboard Micro-Grid
-    for (int y = 0; y < SCREEN_HEIGHT; y++) {
-      for (int x = 0; x < SCREEN_WIDTH; x++) {
-        if ((x + y) % 2 == 0)
-          display.drawPixel(x, y, SSD1306_WHITE);
-      }
-    }
-  }
+// 13. Torch Mode (100% All Pixels ON at Maximum Brightness)
+void drawTorchMode() {
+  display.fillScreen(SSD1306_WHITE);
 }
 
-// 14. Happy Birthday Abhishek - Full Celebration Animation
+// 14. Happy Birthday (Screen 1: HAPPY -> Screen 2: BIRTHDAY -> Screen 3: Custom Name -> Screen 4: Cake)
 void drawBirthdayFace(int frame) {
-  int phase = (frame / 25) % 5; // 5 phases, ~4.5 sec each
   display.clearDisplay();
 
-  if (phase == 0) {
-    // Phase 1: Birthday Cake with flickering candle
-    // Cake base (3-tier)
-    display.fillRoundRect(34, 48, 60, 12, 3, SSD1306_WHITE); // Bottom tier
-    display.fillRoundRect(40, 38, 48, 12, 3, SSD1306_WHITE); // Middle tier
-    display.fillRoundRect(48, 28, 32, 12, 3, SSD1306_WHITE); // Top tier
+  // 8.8-second loop using millis for smooth, reliable screen switching
+  unsigned long t = millis() % 8800; // 0 to 8799 ms
 
-    // Frosting drips on each tier
-    for (int i = 0; i < 5; i++) {
-      display.drawPixel(38 + i * 12, 50, SSD1306_BLACK);
-      display.drawPixel(44 + i * 8, 40, SSD1306_BLACK);
-    }
+  // Get active custom name (trimmed, uppercase, max 10 chars)
+  String name = bdayName;
+  name.trim();
+  if (name.length() == 0) name = "JAY";
+  if (name.length() > 10) name = name.substring(0, 10);
+  name.toUpperCase();
+  int nameLen = name.length();
 
-    // Candle
-    display.fillRect(62, 18, 4, 10, SSD1306_WHITE);
-
-    // Flickering flame (animated)
-    int flicker = (frame % 4);
-    if (flicker == 0) {
-      display.fillCircle(64, 14, 3, SSD1306_WHITE);
-      display.drawPixel(64, 10, SSD1306_WHITE);
-    } else if (flicker == 1) {
-      display.fillCircle(63, 14, 3, SSD1306_WHITE);
-      display.drawPixel(62, 11, SSD1306_WHITE);
-      display.drawPixel(63, 10, SSD1306_WHITE);
-    } else if (flicker == 2) {
-      display.fillCircle(65, 14, 3, SSD1306_WHITE);
-      display.drawPixel(66, 11, SSD1306_WHITE);
-    } else {
-      display.fillCircle(64, 13, 4, SSD1306_WHITE);
-      display.drawPixel(64, 9, SSD1306_WHITE);
-    }
-
-    // Plate
-    display.drawFastHLine(28, 60, 72, SSD1306_WHITE);
-
-    // Sparkle stars around cake
-    int sp = frame % 6;
-    display.drawPixel(20 + sp * 2, 20 + sp, SSD1306_WHITE);
-    display.drawPixel(100 - sp * 3, 15 + sp * 2, SSD1306_WHITE);
-    display.drawPixel(25, 35 - sp, SSD1306_WHITE);
-    display.drawPixel(103, 30 + sp, SSD1306_WHITE);
-
-  } else if (phase == 1) {
-    // Phase 2: Scrolling "HAPPY BIRTHDAY" text
+  if (t < 2200) {
+    // ========================================================
+    // SCREEN 1: "HAPPY" (0 to 2200ms)
+    // ========================================================
     display.setTextColor(SSD1306_WHITE);
+
+    // Festive ornamental top & bottom borders
+    display.drawFastHLine(18, 6, 92, SSD1306_WHITE);
+    display.fillCircle(64, 6, 2, SSD1306_WHITE);
+    display.drawFastHLine(18, 57, 92, SSD1306_WHITE);
+    display.fillCircle(64, 57, 2, SSD1306_WHITE);
+
+    // Floating party balloons on sides
+    // Left balloon
+    display.fillCircle(12, 30, 6, SSD1306_WHITE);
+    display.fillTriangle(12, 36, 10, 39, 14, 39, SSD1306_WHITE);
+    display.drawLine(12, 39, 10, 48, SSD1306_WHITE);
+    // Right balloon
+    display.fillCircle(116, 26, 6, SSD1306_WHITE);
+    display.fillTriangle(116, 32, 114, 35, 118, 35, SSD1306_WHITE);
+    display.drawLine(116, 35, 118, 45, SSD1306_WHITE);
+
+    // "HAPPY" in big letters
     display.setTextSize(2);
-    int scrollX = 128 - (frame % 50) * 6;
-    display.setCursor(scrollX, 8);
+    int bobY = 24 + ((frame % 6 < 3) ? 0 : 2);
+    display.setCursor(34, bobY);
     display.print("HAPPY");
-    display.setTextSize(1);
-    display.setCursor(scrollX + 10, 30);
-    display.print("BIRTHDAY!");
 
-    // Small cake icon at bottom right
-    display.fillRoundRect(90, 46, 28, 8, 2, SSD1306_WHITE);
-    display.fillRoundRect(94, 40, 20, 8, 2, SSD1306_WHITE);
-    display.fillRect(103, 34, 3, 6, SSD1306_WHITE);
-    display.fillCircle(104, 31, 2, SSD1306_WHITE);
-
-    // Confetti falling
+    // Falling confetti
     for (int i = 0; i < 8; i++) {
       int cx = (i * 17 + frame * 3) % 128;
       int cy = (i * 11 + frame * 2) % 64;
-      display.drawPixel(cx, cy, SSD1306_WHITE);
-      display.drawPixel(cx + 1, cy, SSD1306_WHITE);
+      if (cx > 18 && cx < 110 && (cy < 18 || cy > 44)) {
+        display.drawPixel(cx, cy, SSD1306_WHITE);
+      }
     }
 
-  } else if (phase == 2) {
-    // Phase 3: Confetti burst + stars rain
-    for (int i = 0; i < 20; i++) {
-      int sx = (i * 7 + frame * 5) % 128;
-      int sy = (i * 13 + frame * 3) % 64;
-      // Draw tiny star
+  } else if (t < 4400) {
+    // ========================================================
+    // SCREEN 2: "BIRTHDAY" (2200 to 4400ms)
+    // ========================================================
+    display.setTextColor(SSD1306_WHITE);
+
+    // Festive border
+    display.drawFastHLine(10, 8, 108, SSD1306_WHITE);
+    display.drawFastHLine(10, 55, 108, SSD1306_WHITE);
+
+    // Party poppers on bottom corners shooting sparks
+    // Left popper cone
+    display.fillTriangle(6, 58, 6, 48, 14, 58, SSD1306_WHITE);
+    display.drawLine(12, 50, 24, 38, SSD1306_WHITE);
+    display.drawLine(14, 52, 28, 44, SSD1306_WHITE);
+    display.drawPixel(25, 36, SSD1306_WHITE);
+    display.drawPixel(29, 42, SSD1306_WHITE);
+
+    // Right popper cone
+    display.fillTriangle(122, 58, 122, 48, 114, 58, SSD1306_WHITE);
+    display.drawLine(116, 50, 104, 38, SSD1306_WHITE);
+    display.drawLine(114, 52, 100, 44, SSD1306_WHITE);
+    display.drawPixel(103, 36, SSD1306_WHITE);
+    display.drawPixel(99, 42, SSD1306_WHITE);
+
+    // "BIRTHDAY" in big letters (8 chars * 12 = 96px, centered at x=16)
+    display.setTextSize(2);
+    int bobY = 24 + ((frame % 6 < 3) ? 0 : 2);
+    display.setCursor(16, bobY);
+    display.print("BIRTHDAY");
+
+    // Confetti particles
+    for (int i = 0; i < 10; i++) {
+      int sx = (i * 13 + frame * 4) % 128;
+      int sy = (i * 7 + frame * 3) % 20 + 2;
       display.drawPixel(sx, sy, SSD1306_WHITE);
-      display.drawPixel(sx - 1, sy, SSD1306_WHITE);
-      display.drawPixel(sx + 1, sy, SSD1306_WHITE);
-      display.drawPixel(sx, sy - 1, SSD1306_WHITE);
-      display.drawPixel(sx, sy + 1, SSD1306_WHITE);
     }
 
-    // Center text pulsing
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    int pulseY = 24 + ((frame % 6 < 3) ? 0 : 2);
-    display.setCursor(10, pulseY);
-    display.print("** CELEBRATION **");
-
-  } else if (phase == 3) {
-    // Phase 4: "ABHISHEK" name with sparkle border
+  } else if (t < 6600) {
+    // ========================================================
+    // SCREEN 3: CUSTOM NAME (e.g. "JAY") (4400 to 6600ms)
+    // ========================================================
     display.setTextColor(SSD1306_WHITE);
 
-    // Sparkle animated border
+    // Animated celebration border
     for (int i = 0; i < 128; i += 4) {
-      int offset = (frame + i) % 8;
-      if (offset < 4) {
-        display.drawPixel(i, 0, SSD1306_WHITE);
-        display.drawPixel(i, 63, SSD1306_WHITE);
+      if ((frame + i) % 8 < 4) {
+        display.drawPixel(i, 2, SSD1306_WHITE);
+        display.drawPixel(i, 61, SSD1306_WHITE);
       }
     }
     for (int i = 0; i < 64; i += 4) {
-      int offset = (frame + i) % 8;
-      if (offset < 4) {
-        display.drawPixel(0, i, SSD1306_WHITE);
-        display.drawPixel(127, i, SSD1306_WHITE);
+      if ((frame + i) % 8 < 4) {
+        display.drawPixel(2, i, SSD1306_WHITE);
+        display.drawPixel(125, i, SSD1306_WHITE);
       }
     }
 
-    // Name in big letters
-    display.setTextSize(2);
-    int nameX = 4;
-    int bobY = 18 + ((frame % 4 < 2) ? 0 : 2);
-    display.setCursor(nameX, bobY);
-    display.print("ABHISHEK");
-
-    // Heart below name
-    drawHeart(64, 48, 16 + ((frame % 6 < 3) ? 0 : 4));
-
-  } else {
-    // Phase 5: Full celebration scene
-    // Cake at center-bottom
-    display.fillRoundRect(44, 42, 40, 10, 2, SSD1306_WHITE);
-    display.fillRoundRect(50, 34, 28, 10, 2, SSD1306_WHITE);
-    display.fillRect(62, 26, 4, 8, SSD1306_WHITE);
-    // Flame
-    int fl = frame % 3;
-    display.fillCircle(64, 23 - fl, 2 + (fl == 1 ? 1 : 0), SSD1306_WHITE);
-
-    // "HBD" text on top
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    display.setCursor(8, 2);
-    display.print("Happy Birthday");
-    display.setCursor(28, 14);
-    display.print("Abhishek!");
-
-    // Confetti + sparkles everywhere
-    for (int i = 0; i < 12; i++) {
-      int px = (i * 11 + frame * 4) % 128;
-      int py = (i * 7 + frame * 2) % 54;
-      display.drawPixel(px, py, SSD1306_WHITE);
+    // Display Name in Big Bold Centered Text
+    int bobY = 14 + ((frame % 4 < 2) ? 0 : 2);
+    if (nameLen <= 5) {
+      // Very big size 3 for short names (e.g. JAY)
+      display.setTextSize(3);
+      int textW = nameLen * 18;
+      int nameX = (128 - textW) / 2;
+      display.setCursor(nameX, bobY);
+      display.print(name);
+    } else {
+      // Size 2 for names 6 to 10 characters (up to 120px)
+      display.setTextSize(2);
+      int textW = nameLen * 12;
+      int nameX = (128 - textW) / 2;
+      display.setCursor(nameX, bobY + 2);
+      display.print(name);
     }
 
-    // Plate
-    display.drawFastHLine(38, 53, 52, SSD1306_WHITE);
+    // Pulsing heart below name
+    int pulse = (frame % 6 < 3) ? 0 : 3;
+    drawHeart(64, 49, 13 + pulse);
 
-    // Bottom sparkle row
-    for (int i = 0; i < 128; i += 6) {
-      if ((frame + i) % 4 < 2)
-        display.drawPixel(i, 58 + (i % 4), SSD1306_WHITE);
+    // Side celebratory stars
+    display.drawPixel(38, 48, SSD1306_WHITE);
+    display.drawPixel(38 - 1, 48, SSD1306_WHITE);
+    display.drawPixel(38 + 1, 48, SSD1306_WHITE);
+    display.drawPixel(38, 47, SSD1306_WHITE);
+    display.drawPixel(38, 49, SSD1306_WHITE);
+
+    display.drawPixel(90, 48, SSD1306_WHITE);
+    display.drawPixel(90 - 1, 48, SSD1306_WHITE);
+    display.drawPixel(90 + 1, 48, SSD1306_WHITE);
+    display.drawPixel(90, 47, SSD1306_WHITE);
+    display.drawPixel(90, 49, SSD1306_WHITE);
+
+  } else {
+    // ========================================================
+    // SCREEN 4: 3-TIER CAKE & "HBD <NAME>" (6600 to 8800ms)
+    // ========================================================
+    display.setTextColor(SSD1306_WHITE);
+
+    // Cake base (3-tier)
+    display.fillRoundRect(44, 46, 40, 9, 2, SSD1306_WHITE); // Bottom tier
+    display.fillRoundRect(50, 37, 28, 9, 2, SSD1306_WHITE); // Middle tier
+    display.fillRoundRect(56, 29, 16, 8, 2, SSD1306_WHITE); // Top tier
+
+    // Frosting drips
+    display.drawPixel(48, 48, SSD1306_BLACK);
+    display.drawPixel(56, 48, SSD1306_BLACK);
+    display.drawPixel(64, 48, SSD1306_BLACK);
+    display.drawPixel(72, 48, SSD1306_BLACK);
+
+    // Candle
+    display.fillRect(63, 21, 3, 8, SSD1306_WHITE);
+
+    // Flickering candle flame
+    int fl = frame % 4;
+    int fx = 64 + (fl == 1 ? -1 : (fl == 3 ? 1 : 0));
+    display.fillCircle(fx, 17, 2, SSD1306_WHITE);
+    display.drawPixel(fx, 14, SSD1306_WHITE);
+
+    // Cake plate
+    display.drawFastHLine(36, 56, 56, SSD1306_WHITE);
+
+    // Top Header: "Happy Birthday" + Name
+    display.setTextSize(1);
+    display.setCursor(22, 2);
+    display.print("Happy Birthday");
+
+    int headerNameX = (128 - nameLen * 6) / 2;
+    display.setCursor(headerNameX, 12);
+    display.print(name);
+
+    // Confetti rain
+    for (int i = 0; i < 10; i++) {
+      int px = (i * 13 + frame * 3) % 128;
+      int py = (i * 7 + frame * 2) % 40 + 16;
+      if (px < 40 || px > 88) {
+        display.drawPixel(px, py, SSD1306_WHITE);
+      }
     }
   }
 }
@@ -2570,8 +2639,8 @@ void renderFaceByName(const String &face) {
     drawDateFaceStandalone();
   } else if (face == "clock") {
     drawClockFaceSlides();
-  } else if (face == "pixel_test") {
-    drawPixelTestMode(animFrame);
+  } else if (face == "torch" || face == "pixel_test") {
+    drawTorchMode();
   } else {
     drawIdleFace(animFrame);
   }
@@ -2668,6 +2737,7 @@ void saveSettings() {
   prefs.begin("mybot", false); // false = read-write
   prefs.putString("face", currentFace);
   prefs.putBool("slideshow", slideshowActive);
+  prefs.putString("bdayName", bdayName);
   // Save full playlist as compact string: "face:dur,face:dur,..."
   String pl = "";
   for (int i = 0; i < playlistCount; i++) {
@@ -2684,6 +2754,7 @@ void loadSettings() {
   prefs.begin("mybot", true); // true = read-only
   currentFace    = prefs.getString("face", "idle");
   slideshowActive = prefs.getBool("slideshow", false);
+  bdayName        = prefs.getString("bdayName", "Jay");
   String pl       = prefs.getString("playlist", "");
   prefs.end();
 
@@ -2727,6 +2798,12 @@ void handleRoot() { server.send(200, "text/html", INDEX_HTML); }
 void handleSetFace() {
   if (server.hasArg("face")) {
     currentFace = server.arg("face");
+    if (server.hasArg("name")) {
+      String n = server.arg("name");
+      n.trim();
+      if (n.length() > 10) n = n.substring(0, 10);
+      if (n.length() > 0) bdayName = n;
+    }
     slideshowActive = false;
     animFrame = 0;
     saveSettings(); // <<< Persistent save to NVS flash!
@@ -2734,6 +2811,20 @@ void handleSetFace() {
     server.send(200, "text/plain", "OK: " + currentFace);
   } else {
     server.send(400, "text/plain", "Missing face parameter");
+  }
+}
+
+void handleSetBday() {
+  if (server.hasArg("name")) {
+    String n = server.arg("name");
+    n.trim();
+    if (n.length() > 10) n = n.substring(0, 10);
+    if (n.length() > 0) bdayName = n;
+    saveSettings();
+    Serial.printf("[BDAY] Name saved to NVS: %s\n", bdayName.c_str());
+    server.send(200, "text/plain", "OK: " + bdayName);
+  } else {
+    server.send(400, "text/plain", "Missing name");
   }
 }
 
@@ -2905,6 +2996,10 @@ void setup() {
   server.on("/set", HTTP_GET, handleSetFace);
   server.on("/setslides", HTTP_GET, handleSetSlides);
   server.on("/synctime", HTTP_GET, handleSyncTime);
+  server.on("/setbday", HTTP_GET, handleSetBday);
+  server.on("/getbday", HTTP_GET, []() {
+    server.send(200, "text/plain", bdayName);
+  });
   server.on("/sleep", HTTP_GET, []() {
     server.send(200, "text/plain", "OK: Turning off WiFi to save battery");
     delay(200);
@@ -3098,14 +3193,14 @@ void loop() {
 
   // Display refresh: 40ms (~25 FPS) for butter-smooth sliding transitions & second ticks,
   // 180ms when stationary face is shown
-  int animInterval = (slideshowActive || currentFace == "time" || currentFace == "clock" || currentFace == "ram" || currentFace == "fireworks" || currentFace == "diwali") ? 40 : 180;
+  int animInterval = (slideshowActive || currentFace == "time" || currentFace == "clock" || currentFace == "ram" || currentFace == "fireworks" || currentFace == "diwali" || currentFace == "birthday") ? 40 : 180;
   if (now - lastAnimUpdate >= animInterval) {
     lastAnimUpdate = now;
     if (oledConnected) {
       renderCurrentFace();
 
       // Top-right corner indicators (shown on emoji faces, suppressed on clean clock/date):
-      if (wifiEnabled && currentFace != "time" && currentFace != "date" && currentFace != "clock" && currentFace != "ram" && currentFace != "diwali") {
+      if (wifiEnabled && currentFace != "time" && currentFace != "date" && currentFace != "clock" && currentFace != "ram" && currentFace != "diwali" && currentFace != "birthday" && currentFace != "torch") {
         if (WiFi.softAPgetStationNum() > 0) {
           display.fillCircle(124, 4, 2, SSD1306_WHITE);
         } else if ((animFrame % 4) < 2) {
