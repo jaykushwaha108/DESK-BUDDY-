@@ -10,6 +10,15 @@
 #include "esp_wifi.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+#include <time.h>
+#include <sys/time.h>
+#include <Preferences.h>
+#include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSansBold9pt7b.h>
+#include <Fonts/FreeSansBold12pt7b.h>
+#include <Fonts/FreeSansBold24pt7b.h>
+
+Preferences prefs;
 
 const byte DNS_PORT = 53;
 DNSServer dnsServer;
@@ -44,6 +53,37 @@ int animFrame = 0;
 // Wi-Fi Battery Saver: Auto-off after 1 minute IF NO CLIENT IS CONNECTED
 bool wifiEnabled = true;
 unsigned long wifiOffTime = 60000; // 60 seconds from boot
+bool timeSynced = false; // Set to true once synced from user device
+
+// ==========================================
+// PLAYLIST & SLIDESHOW CAROUSEL SYSTEM
+// ==========================================
+struct SlideItem {
+  String face;
+  int durationSec;
+};
+
+#define MAX_SLIDES 16
+SlideItem playlist[MAX_SLIDES] = {
+  {"time", 4},
+  {"date", 3},
+  {"happy", 4},
+  {"cool", 3}
+};
+int playlistCount = 4;
+bool slideshowActive = false;
+int currentSlideIndex = 0;
+unsigned long slideStartTime = 0;
+
+// Slide transition animation state
+bool inTransition = false;
+unsigned long transitionStartTime = 0;
+const unsigned long TRANSITION_DURATION = 400; // 400ms smooth slide
+int transitionFromIndex = 0;
+int transitionToIndex = 0;
+
+uint8_t slideBufA[1024];
+uint8_t slideBufB[1024];
 
 // ==========================================
 // HTML & WEB INTERFACE (Mobile-First Cyberpunk UI)
@@ -230,6 +270,110 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       margin: 0;
       font-size: 28px;
     }
+    .studio-card {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      backdrop-filter: blur(14px);
+      border-radius: 16px;
+      padding: 16px 14px;
+      margin-bottom: 20px;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+    .studio-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+    .slide-item {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .slide-item.dragging {
+      opacity: 0.5;
+      border: 1px dashed #818cf8;
+    }
+    .slide-select {
+      background: #0b1120;
+      color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      flex: 1;
+      min-width: 0;
+      outline: none;
+    }
+    .dur-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 2px 4px;
+    }
+    .step-btn {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .step-btn:active { transform: scale(0.9); }
+    .dur-val {
+      font-size: 12px;
+      font-weight: 700;
+      color: #38bdf8;
+      min-width: 24px;
+      text-align: center;
+    }
+    .del-btn {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 6px;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .reorder-col {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .reorder-btn {
+      background: transparent;
+      color: #64748b;
+      border: none;
+      cursor: pointer;
+      font-size: 10px;
+      line-height: 1;
+      padding: 1px;
+    }
+    .reorder-btn:hover { color: #a5b4fc; }
     footer {
       text-align: center;
       margin-top: 24px;
@@ -247,7 +391,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     </div>
     <h1>MY BOT OLED</h1>
     <p class="subtitle">Tap any emotion to project it live on OLED</p>
-    <div style="margin-top: 8px;">
+    <div style="display:flex; gap:8px; justify-content:center; margin-top:8px; flex-wrap:wrap;">
+      <button id="syncBtn" onclick="syncTimeWithDevice()" style="background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+        🕒 Sync Phone Time
+      </button>
       <button onclick="if(confirm('Turn off Wi-Fi now to save battery?')){fetch('/sleep');alert('Wi-Fi is turning OFF! Device will now run in low-power battery mode.');}" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer;">
         🔋 Turn Off Wi-Fi Now (Save ~85% Battery)
       </button>
@@ -256,11 +403,48 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
   <div class="active-bar">
     <span>CURRENT MOOD:</span>
-    <span class="active-pill" id="currentLabel">IDLE (BLOCKED)</span>
+    <span class="active-pill" id="currentLabel">SINGLE (NORMAL)</span>
+  </div>
+
+  <!-- 🎞️ SLIDESHOW PLAYLIST STUDIO -->
+  <div class="studio-card">
+    <div class="studio-header">
+      <div>
+        <div style="font-weight:700; font-size:14px; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+          <span>🎞️</span> Slideshow Playlist
+        </div>
+        <div style="font-size:11px; color:var(--text-dim);">Line se cycle hone ke liye list banayein</div>
+      </div>
+      <button id="slideshowToggleBtn" onclick="toggleSlideshow()" style="background:linear-gradient(135deg, #10b981, #06b6d4); color:#fff; border:none; padding:7px 14px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 0 12px rgba(16,185,129,0.3);">
+        ▶ Start Slideshow
+      </button>
+    </div>
+
+    <div id="playlistList"></div>
+
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button onclick="addSlideItem()" style="flex:1; background:rgba(99, 102, 241, 0.15); border:1px dashed #818cf8; color:#a5b4fc; padding:8px; border-radius:10px; font-size:12px; font-weight:600; cursor:pointer;">
+        ➕ Add Slide (+)
+      </button>
+    </div>
   </div>
 
   <div class="grid">
-    <!-- 1. Normal / Idle -->
+    <!-- 1. Standalone Time -->
+    <div class="card" onclick="setFace('time', 'Digital Time (Live)', this)">
+      <span class="emoji">🕒</span>
+      <div class="title">Digital Time</div>
+      <div class="desc">HH : MM : SS Live</div>
+    </div>
+
+    <!-- 2. Standalone Date -->
+    <div class="card" onclick="setFace('date', 'Today Date', this)">
+      <span class="emoji">📅</span>
+      <div class="title">Today Date</div>
+      <div class="desc">Day, Month, Year</div>
+    </div>
+
+    <!-- 3. Normal / Idle -->
     <div class="card selected" onclick="setFace('idle', 'Normal / Blink', this)">
       <span class="emoji">👀</span>
       <div class="title">Normal</div>
@@ -351,6 +535,27 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <div class="desc">HBD Abhishek!</div>
     </div>
 
+    <!-- Diwali Celebration -->
+    <div class="card" onclick="setFace('diwali', 'Diwali 🪔', this)" style="background: linear-gradient(135deg, rgba(255,165,0,0.2), rgba(255,215,0,0.15)); border-color: rgba(255,165,0,0.4);">
+      <span class="emoji">🪔</span>
+      <div class="title" style="color:#fbbf24;">Diwali</div>
+      <div class="desc">Diya & Rangoli</div>
+    </div>
+
+    <!-- Ram Ji -->
+    <div class="card" onclick="setFace('ram', 'Jai Shri Ram 🏹', this)" style="background: linear-gradient(135deg, rgba(255,140,0,0.2), rgba(255,69,0,0.15)); border-color: rgba(255,140,0,0.4);">
+      <span class="emoji">🏹</span>
+      <div class="title" style="color:#fb923c;">Ram Ji</div>
+      <div class="desc">Jai Shri Ram</div>
+    </div>
+
+    <!-- Fireworks/Patake -->
+    <div class="card" onclick="setFace('fireworks', 'Fireworks 🎆', this)" style="background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(245,158,11,0.15)); border-color: rgba(239,68,68,0.4);">
+      <span class="emoji">🎆</span>
+      <div class="title" style="color:#f87171;">Patake</div>
+      <div class="desc">Skyshot & Fireworks</div>
+    </div>
+
     <!-- 14. Dead Pixel Diagnostic Test -->
     <div class="card test-card" onclick="setFace('pixel_test', 'Dead Pixel Test', this)">
       <span class="emoji">🧪</span>
@@ -359,24 +564,6 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <div class="desc">All Pixels White & Black Test to spot dead/stuck pixels</div>
       </div>
     </div>
-    <!-- 14. Wireless Code Upload (OTA) -->
-    <div class="card test-card" style="margin-top: 10px; background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(99, 102, 241, 0.2)); border-color: rgba(236, 72, 153, 0.4); flex-direction: column; align-items: stretch; text-align: left;">
-      <div style="display:flex; align-items:center; gap: 10px; margin-bottom: 8px;">
-        <span class="emoji" style="margin:0; font-size:24px;">🚀</span>
-        <div>
-          <div class="title" style="color:#f472b6;">Wireless Code Upload (OTA)</div>
-          <div class="desc">Bina cable ke direct naya .bin firmware upload karein</div>
-        </div>
-      </div>
-      <form id="otaForm" style="display:flex; flex-direction:column; gap:8px;">
-        <input type="file" id="otaFile" accept=".bin" style="font-size:12px; color:var(--text-dim);" required>
-        <button type="submit" id="otaBtn" style="background:linear-gradient(135deg, #6366f1, #ec4899); color:#fff; border:none; padding:10px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;">⚡ Flash New Firmware (.bin)</button>
-        <div id="progCont" style="display:none; width:100%; height:8px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden;">
-          <div id="progBar" style="width:0%; height:100%; background:#10b981; transition:width 0.2s;"></div>
-        </div>
-        <div id="otaStatus" style="font-size:11px; color:#38bdf8; text-align:center;"></div>
-      </form>
-    </div>
   </div>
 
   <footer>
@@ -384,47 +571,231 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
   </footer>
 
   <script>
+    var AVAILABLE_FACES = [
+      { id: 'time', name: '🕒 Digital Time (Live)' },
+      { id: 'date', name: '📅 Today Date' },
+      { id: 'idle', name: '👀 Normal (Blink)' },
+      { id: 'happy', name: '😊 Happy Smile' },
+      { id: 'love', name: '😍 Love Hearts' },
+      { id: 'wink', name: '😉 Playful Wink' },
+      { id: 'cool', name: '😎 Cool Shades' },
+      { id: 'sleepy', name: '😴 Sleepy Zzz' },
+      { id: 'angry', name: '😡 Angry' },
+      { id: 'sad', name: '😢 Sad Tear' },
+      { id: 'surprised', name: '😲 Shocked' },
+      { id: 'laughing', name: '😆 Laughing XD' },
+      { id: 'confused', name: '🤨 Confused' },
+      { id: 'dizzy', name: '😵 Dizzy' },
+      { id: 'birthday', name: '🎂 Birthday' },
+      { id: 'diwali', name: '🪔 Diwali Celebration' },
+      { id: 'ram', name: '🏹 Jai Shri Ram' },
+      { id: 'fireworks', name: '🎆 Patake/Fireworks' }
+    ];
+
+    var currentPlaylist = [
+      { face: 'time', duration: 4 },
+      { face: 'date', duration: 3 },
+      { face: 'happy', duration: 4 },
+      { face: 'cool', duration: 3 }
+    ];
+    var isSlideshowActive = false;
+    var dragSrcIdx = -1;
+
+    function renderPlaylistUI() {
+      var cont = document.getElementById('playlistList');
+      if (!cont) return;
+      cont.innerHTML = '';
+
+      currentPlaylist.forEach(function(item, idx) {
+        var row = document.createElement('div');
+        row.className = 'slide-item';
+        row.draggable = true;
+
+        // Drag & drop handlers
+        row.addEventListener('dragstart', function(e) {
+          dragSrcIdx = idx;
+          row.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragend', function() {
+          row.classList.remove('dragging');
+        });
+        row.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        });
+        row.addEventListener('drop', function(e) {
+          e.preventDefault();
+          if (dragSrcIdx !== -1 && dragSrcIdx !== idx) {
+            var moved = currentPlaylist.splice(dragSrcIdx, 1)[0];
+            currentPlaylist.splice(idx, 0, moved);
+            renderPlaylistUI();
+            sendPlaylistToESP32();
+          }
+        });
+
+        // Reorder buttons (Mobile fallback for drag & drop)
+        var reorderCol = document.createElement('div');
+        reorderCol.className = 'reorder-col';
+        reorderCol.innerHTML = '<button class="reorder-btn" onclick="moveSlide(' + idx + ', -1)">▲</button>' +
+                               '<button class="reorder-btn" onclick="moveSlide(' + idx + ', 1)">▼</button>';
+        row.appendChild(reorderCol);
+
+        // Face selector dropdown
+        var sel = document.createElement('select');
+        sel.className = 'slide-select';
+        AVAILABLE_FACES.forEach(function(f) {
+          var opt = document.createElement('option');
+          opt.value = f.id;
+          opt.innerText = f.name;
+          if (f.id === item.face) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        sel.onchange = function() {
+          item.face = sel.value;
+          sendPlaylistToESP32();
+        };
+        row.appendChild(sel);
+
+        // Duration stepper [-] [4s] [+]
+        var durCtrl = document.createElement('div');
+        durCtrl.className = 'dur-ctrl';
+        durCtrl.innerHTML = '<button class="step-btn" onclick="changeSlideDuration(' + idx + ', -1)">-</button>' +
+                            '<span class="dur-val">' + item.duration + 's</span>' +
+                            '<button class="step-btn" onclick="changeSlideDuration(' + idx + ', 1)">+</button>';
+        row.appendChild(durCtrl);
+
+        // Delete button [- / ✕]
+        var delBtn = document.createElement('button');
+        delBtn.className = 'del-btn';
+        delBtn.innerHTML = '✕';
+        delBtn.title = 'Remove Slide';
+        delBtn.onclick = function() {
+          removeSlideItem(idx);
+        };
+        row.appendChild(delBtn);
+
+        cont.appendChild(row);
+      });
+    }
+
+    function addSlideItem() {
+      if (currentPlaylist.length >= 16) {
+        alert('Maximum 16 slides allowed!');
+        return;
+      }
+      currentPlaylist.push({ face: 'happy', duration: 3 });
+      renderPlaylistUI();
+      sendPlaylistToESP32();
+    }
+
+    function removeSlideItem(idx) {
+      if (currentPlaylist.length <= 1) {
+        alert('At least 1 slide is required in playlist!');
+        return;
+      }
+      currentPlaylist.splice(idx, 1);
+      renderPlaylistUI();
+      sendPlaylistToESP32();
+    }
+
+    function changeSlideDuration(idx, delta) {
+      var newDur = currentPlaylist[idx].duration + delta;
+      if (newDur >= 1 && newDur <= 60) {
+        currentPlaylist[idx].duration = newDur;
+        renderPlaylistUI();
+        sendPlaylistToESP32();
+      }
+    }
+
+    function moveSlide(idx, delta) {
+      var target = idx + delta;
+      if (target >= 0 && target < currentPlaylist.length) {
+        var item = currentPlaylist.splice(idx, 1)[0];
+        currentPlaylist.splice(target, 0, item);
+        renderPlaylistUI();
+        sendPlaylistToESP32();
+      }
+    }
+
+    function toggleSlideshow() {
+      isSlideshowActive = !isSlideshowActive;
+      updateSlideshowUI();
+      sendPlaylistToESP32();
+    }
+
+    function updateSlideshowUI() {
+      var btn = document.getElementById('slideshowToggleBtn');
+      var label = document.getElementById('currentLabel');
+      if (isSlideshowActive) {
+        if (btn) {
+          btn.innerText = '⏸ Stop Slideshow';
+          btn.style.background = 'linear-gradient(135deg, #ef4444, #f59e0b)';
+        }
+        if (label) {
+          label.innerText = '🎬 SLIDESHOW RUNNING';
+          label.style.color = '#38bdf8';
+        }
+        document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+      } else {
+        if (btn) {
+          btn.innerText = '▶ Start Slideshow';
+          btn.style.background = 'linear-gradient(135deg, #10b981, #06b6d4)';
+        }
+        if (label) {
+          label.innerText = 'SINGLE MODE';
+          label.style.color = '#a5b4fc';
+        }
+      }
+    }
+
+    function sendPlaylistToESP32() {
+      var items = currentPlaylist.map(function(item) {
+        return item.face + ':' + item.duration;
+      }).join(',');
+      fetch('/setslides?active=' + (isSlideshowActive ? '1' : '0') + '&items=' + encodeURIComponent(items))
+        .catch(function(e) { console.error('Slideshow update failed:', e); });
+    }
+
+    function syncTimeWithDevice() {
+      var now = new Date();
+      var epoch = Math.floor(now.getTime() / 1000);
+      var tzMinutes = -now.getTimezoneOffset(); // e.g. +330 for IST (+5:30)
+      fetch('/synctime?epoch=' + epoch + '&tz=' + tzMinutes)
+        .then(function(r) { return r.text(); })
+        .then(function(msg) {
+          console.log('Time Sync:', msg);
+          var btn = document.getElementById('syncBtn');
+          if (btn) {
+            var tStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            btn.innerHTML = '✓ Time Synced (' + tStr + ')';
+            btn.style.color = '#34d399';
+            btn.style.borderColor = '#10b981';
+            btn.style.background = 'rgba(16, 185, 129, 0.2)';
+          }
+        })
+        .catch(function(err) { console.error('Time Sync error:', err); });
+    }
+
+    // Single Face Tap Mode: Turns off slideshow & locks onto tapped face!
     function setFace(face, label, el) {
       if (navigator.vibrate) navigator.vibrate(30);
 
+      isSlideshowActive = false;
+      updateSlideshowUI();
+
       document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
-      el.classList.add('selected');
-      document.getElementById('currentLabel').innerText = label;
+      if (el) el.classList.add('selected');
+      document.getElementById('currentLabel').innerText = label + ' (LOCKED)';
 
       fetch('/set?face=' + face).catch(err => console.log(err));
     }
 
-    document.getElementById('otaForm').onsubmit = function(e) {
-      e.preventDefault();
-      var fin = document.getElementById('otaFile');
-      if (!fin.files.length) return;
-      var f = fin.files[0];
-      var fd = new FormData();
-      fd.append('update', f);
-      var xhr = new XMLHttpRequest();
-      document.getElementById('progCont').style.display = 'block';
-      document.getElementById('otaBtn').disabled = true;
-      document.getElementById('otaBtn').innerText = 'Uploading...';
-      xhr.upload.addEventListener('progress', function(e) {
-        if (e.lengthComputable) {
-          var p = Math.round((e.loaded / e.total) * 100);
-          document.getElementById('progBar').style.width = p + '%';
-          document.getElementById('otaStatus').innerText = p + '% Uploaded - Please wait...';
-        }
-      });
-      xhr.onload = function() {
-        if (xhr.status === 200) {
-          document.getElementById('otaStatus').innerText = 'Upload Successful! ESP32 Rebooting in 5s...';
-          setTimeout(function() { location.reload(); }, 6000);
-        } else {
-          document.getElementById('otaStatus').innerText = 'Upload Error: ' + xhr.responseText;
-          document.getElementById('otaBtn').disabled = false;
-          document.getElementById('otaBtn').innerText = '⚡ Retry Upload';
-        }
-      };
-      xhr.open('POST', '/update');
-      xhr.send(fd);
-    };
+    window.addEventListener('DOMContentLoaded', function() {
+      renderPlaylistUI();
+      syncTimeWithDevice();
+      setInterval(syncTimeWithDevice, 30000);
+    });
   </script>
 </body>
 </html>
@@ -872,40 +1243,1366 @@ void drawBirthdayFace(int frame) {
 }
 
 // ==========================================
-// RENDER CURRENT FACE
+// CLOCK & DATE SLIDES (With Smooth Slide Transition)
 // ==========================================
-void renderCurrentFace() {
-  if (currentFace == "idle") {
-    drawIdleFace(animFrame);
-  } else if (currentFace == "happy") {
-    drawHappyFace(animFrame);
-  } else if (currentFace == "love") {
-    drawLoveFace(animFrame);
-  } else if (currentFace == "wink") {
-    drawWinkFace(animFrame);
-  } else if (currentFace == "cool") {
-    drawCoolFace(animFrame);
-  } else if (currentFace == "sleepy") {
-    drawSleepyFace(animFrame);
-  } else if (currentFace == "angry") {
-    drawAngryFace(animFrame);
-  } else if (currentFace == "sad") {
-    drawSadFace(animFrame);
-  } else if (currentFace == "surprised") {
-    drawSurprisedFace(animFrame);
-  } else if (currentFace == "laughing") {
-    drawLaughingFace(animFrame);
-  } else if (currentFace == "confused") {
-    drawConfusedFace(animFrame);
-  } else if (currentFace == "dizzy") {
-    drawDizzyFace(animFrame);
-  } else if (currentFace == "pixel_test") {
-    drawPixelTestMode(animFrame);
-  } else if (currentFace == "birthday") {
-    drawBirthdayFace(animFrame);
+
+// Helper: Draw smooth rounded vector digits (52px tall, round corners, NO slash in 0)
+void drawSmoothBigDigit(int x, int y, char c, int w, int h) {
+  int r = 8; // Corner radius
+  int t = 5; // Stroke thickness
+
+  switch (c) {
+    case '0':
+      // Clean round oval with NO line in the middle
+      display.fillRoundRect(x, y, w, h, r, SSD1306_WHITE);
+      display.fillRoundRect(x + t, y + t, w - 2 * t, h - 2 * t, 4, SSD1306_BLACK);
+      break;
+
+    case '1':
+      display.fillRoundRect(x + w - t - 2, y, t + 1, h, 2, SSD1306_WHITE);
+      display.fillRoundRect(x + w - t - 9, y + 2, 8, t, 2, SSD1306_WHITE);
+      break;
+
+    case '2': {
+      display.fillRoundRect(x, y, w, 18, r, SSD1306_WHITE);
+      display.fillRoundRect(x, y + t, w - t, 13, 3, SSD1306_BLACK);
+      display.fillRoundRect(x, y + h - t, w, t, 2, SSD1306_WHITE);
+      for (int i = 0; i < t; i++) {
+        display.drawLine(x + w - t + i, y + 14, x + i, y + h - t, SSD1306_WHITE);
+      }
+      break;
+    }
+
+    case '3': {
+      int topH = h / 2 + 1;
+      int botH = h - topH + 2;
+      display.fillRoundRect(x, y, w, topH, r, SSD1306_WHITE);
+      display.fillRoundRect(x + t, y + t, w - 2 * t, topH - 2 * t, 3, SSD1306_BLACK);
+      display.fillRect(x, y + t, t + 1, topH - 2 * t, SSD1306_BLACK);
+      display.fillRoundRect(x, y + topH - 2, w, botH, r, SSD1306_WHITE);
+      display.fillRoundRect(x + t, y + topH - 2 + t, w - 2 * t, botH - 2 * t, 3, SSD1306_BLACK);
+      display.fillRect(x, y + topH - 2 + t, t + 1, botH - 2 * t, SSD1306_BLACK);
+      display.fillRoundRect(x + 5, y + topH - 3, w - 8, t, 2, SSD1306_WHITE);
+      break;
+    }
+
+    case '4':
+      display.fillRoundRect(x + w - t - 1, y, t + 1, h, 2, SSD1306_WHITE);
+      display.fillRoundRect(x, y, t, 32, 2, SSD1306_WHITE);
+      display.fillRoundRect(x, y + 29, w, t, 2, SSD1306_WHITE);
+      break;
+
+    case '5': {
+      int botH = h / 2 + 4;
+      display.fillRoundRect(x, y, w, t, 2, SSD1306_WHITE);
+      display.fillRect(x, y, t, 25, SSD1306_WHITE);
+      display.fillRoundRect(x, y + h - botH, w, botH, r, SSD1306_WHITE);
+      display.fillRoundRect(x + t, y + h - botH + t, w - 2 * t, botH - 2 * t, 3, SSD1306_BLACK);
+      display.fillRect(x, y + h - botH + t, t + 1, botH - 2 * t, SSD1306_BLACK);
+      display.fillRoundRect(x, y + h - botH, w - 4, t, 2, SSD1306_WHITE);
+      break;
+    }
+
+    case '6': {
+      int botH = h / 2 + 3;
+      display.fillRoundRect(x, y, t, h, 2, SSD1306_WHITE);
+      display.fillRoundRect(x, y, w, t, 2, SSD1306_WHITE);
+      display.fillRoundRect(x, y + h - botH, w, botH, 7, SSD1306_WHITE);
+      display.fillRoundRect(x + t, y + h - botH + t, w - 2 * t, botH - 2 * t, 3, SSD1306_BLACK);
+      break;
+    }
+
+    case '7':
+      display.fillRoundRect(x, y, w, 6, 2, SSD1306_WHITE);
+      for (int i = 0; i < t; i++) {
+        display.drawLine(x + w - t + i, y + 5, x + 3 + i, y + h - 1, SSD1306_WHITE);
+      }
+      break;
+
+    case '8': {
+      int topH = h / 2 + 1;
+      int botH = h - topH + 2;
+      display.fillRoundRect(x, y, w, topH, 7, SSD1306_WHITE);
+      display.fillRoundRect(x + t, y + t, w - 2 * t, topH - 2 * t, 3, SSD1306_BLACK);
+      display.fillRoundRect(x, y + topH - 2, w, botH, 7, SSD1306_WHITE);
+      display.fillRoundRect(x + t, y + topH - 2 + t, w - 2 * t, botH - 2 * t, 3, SSD1306_BLACK);
+      break;
+    }
+
+    case '9': {
+      int topH = h / 2 + 3;
+      // Top complete solid loop
+      display.fillRoundRect(x, y, w, topH, 7, SSD1306_WHITE);
+      display.fillRoundRect(x + t, y + t, w - 2 * t, topH - 2 * t, 3, SSD1306_BLACK);
+      // Right vertical stem from top to bottom (solid unbroken line!)
+      display.fillRoundRect(x + w - t, y, t, h, 2, SSD1306_WHITE);
+      // Bottom horizontal base bar (Classic digital 9, NO upward hook like 'g'!)
+      display.fillRoundRect(x, y + h - t, w, t, 2, SSD1306_WHITE);
+      break;
+    }
+
+    default:
+      display.fillRoundRect(x, y, w, h, r, SSD1306_WHITE);
+      break;
+  }
+}
+
+// Slide 1: TIME (Massive 52px Hour, Equal Distance Blinking Colon, Right Margin Safe from Bezel)
+void drawSlide1_Time(int xOffset, struct tm *t) {
+  display.setTextWrap(false);
+  display.setTextColor(SSD1306_WHITE);
+
+  int h12 = t->tm_hour % 12;
+  if (h12 == 0) h12 = 12;
+
+  char hourBuf[4];
+  char minBuf[4];
+  char secBuf[4];
+  snprintf(hourBuf, sizeof(hourBuf), "%02d", h12);
+  snprintf(minBuf, sizeof(minBuf), "%02d", t->tm_min);
+  snprintf(secBuf, sizeof(secBuf), "%02d", t->tm_sec);
+  const char *ampm = (t->tm_hour >= 12) ? "PM" : "AM";
+
+  // Coordinates with safe clearance from 3D-printed enclosure bezel:
+  // Left margin: 8px. Right margin: 12px (PM will never cut!). Top margin: 6px.
+  int digitW = 22;
+  int digitH = 52;
+  int hourY  = 6;
+
+  int hourX1 = xOffset + 8;
+  int hourX2 = xOffset + 8 + digitW + 3; // xOffset + 33
+  int hourRight = hourX2 + digitW;       // xOffset + 55
+
+  // Equal Distance on both sides of Colon:
+  // Gap from Hour to Colon = 8px. Gap from Colon to Minutes = 9px.
+  int colonX = xOffset + 65;
+  int rightX = xOffset + 76;
+  int ampmX  = xOffset + 98; // Ends at ~116px -> 12px safe clearance from right bezel!
+
+  // 1. Draw Massive Smooth Hour Digits (Round corners, NO slash in 0, solid unbroken 9)
+  drawSmoothBigDigit(hourX1, hourY, hourBuf[0], digitW, digitH);
+  drawSmoothBigDigit(hourX2, hourY, hourBuf[1], digitW, digitH);
+
+  // 2. Colon ':' dots (Blinks with second: 500ms ON / 500ms OFF)
+  bool colonVisible = (millis() % 1000 < 500);
+  if (colonVisible) {
+    display.fillCircle(colonX, 17, 2, SSD1306_WHITE);
+    display.fillCircle(colonX, 45, 2, SSD1306_WHITE);
   }
 
+  // 3. Minutes (FreeSansBold 12pt)
+  display.setFont(&FreeSansBold12pt7b);
+  display.setTextSize(1);
+  display.setCursor(rightX, 26);
+  display.print(minBuf);
+
+  // 4. Seconds (FreeSansBold 9pt) & AM/PM (FreeSans 9pt)
+  display.setFont(&FreeSansBold9pt7b);
+  display.setCursor(rightX, 52);
+  display.print(secBuf);
+
+  display.setFont(&FreeSans9pt7b);
+  display.setCursor(ampmX, 52);
+  display.print(ampm);
+
+  // Reset to default font & wrap so other animations/faces work normally
+  display.setFont(NULL);
+  display.setTextWrap(true);
+  display.setTextSize(1);
+}
+
+// Slide 2: DATE (Line 1: "02 November", Line 2: "Sunday, 2026")
+// Mathematically centered in both X and Y on 0.96 OLED (128x64)
+void drawSlide2_Date(int xOffset, struct tm *t) {
+  display.setTextWrap(false);
+  display.setTextColor(SSD1306_WHITE);
+
+  const char *fullMonths[] = {
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  };
+  const char *shortMonths[] = {
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  };
+  const char *fullDays[] = {
+    "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
+  };
+  const char *shortDays[] = {
+    "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+  };
+
+  int mon  = (t->tm_mon >= 0 && t->tm_mon <= 11) ? t->tm_mon : 0;
+  int wday = (t->tm_wday >= 0 && t->tm_wday <= 6) ? t->tm_wday : 0;
+  int year = t->tm_year + 1900;
+
+  // 1. Measure Line 1: Day of Month + Month (e.g. "02 November")
+  char dateBuf[32];
+  snprintf(dateBuf, sizeof(dateBuf), "%02d %s", t->tm_mday, fullMonths[mon]);
+
+  display.setFont(&FreeSansBold9pt7b);
+  display.setTextSize(1);
+  int16_t x1, y1;
+  uint16_t w1, h1;
+  display.getTextBounds(dateBuf, 0, 0, &x1, &y1, &w1, &h1);
+  if (w1 > 120) {
+    snprintf(dateBuf, sizeof(dateBuf), "%02d %s.", t->tm_mday, shortMonths[mon]);
+    display.getTextBounds(dateBuf, 0, 0, &x1, &y1, &w1, &h1);
+  }
+
+  // 2. Measure Line 2: Day of Week, Year (e.g. "Sunday, 2026")
+  char dayYearBuf[32];
+  snprintf(dayYearBuf, sizeof(dayYearBuf), "%s, %04d", fullDays[wday], year);
+
+  display.setFont(&FreeSans9pt7b);
+  int16_t x2, y2;
+  uint16_t w2, h2;
+  display.getTextBounds(dayYearBuf, 0, 0, &x2, &y2, &w2, &h2);
+  if (w2 > 120) {
+    snprintf(dayYearBuf, sizeof(dayYearBuf), "%s, %04d", shortDays[wday], year);
+    display.getTextBounds(dayYearBuf, 0, 0, &x2, &y2, &w2, &h2);
+  }
+
+  // 3. Exact Mathematical Centering (X and Y)
+  // X: Left margin == Right margin for each line
+  int line1X = xOffset + (128 - w1) / 2 - x1;
+  int line2X = xOffset + (128 - w2) / 2 - x2;
+
+  // Y: Calculate combined height and center vertically (Top Margin == Bottom Margin)
+  int gap = 8;
+  int totalH = h1 + gap + h2;
+  int topMargin = (64 - totalH) / 2;
+  int line1Y = topMargin - y1;
+  int line2Y = (topMargin + h1 + gap) - y2;
+
+  // Draw Line 1 (Bold Month & Day)
+  display.setFont(&FreeSansBold9pt7b);
+  display.setCursor(line1X, line1Y);
+  display.print(dateBuf);
+
+  // Draw Line 2 (Day of Week & Year)
+  display.setFont(&FreeSans9pt7b);
+  display.setCursor(line2X, line2Y);
+  display.print(dayYearBuf);
+
+  // Reset to default font & wrap so other animations/faces work normally
+  display.setFont(NULL);
+  display.setTextWrap(true);
+  display.setTextSize(1);
+}
+
+// ==========================================
+// DIWALI CELEBRATION ANIMATION (5 Phases)
+// ==========================================
+void drawDiwaliFace(int frame) {
+  display.clearDisplay();
+  int phase = (frame / 25) % 5;
+
+  if (phase == 0) {
+    // Phase 1: Animated diya with flickering flame + rangoli dots
+    // Diya body (oil lamp) - bowl shape at center
+    int cx = 64, cy = 42;
+    display.fillCircle(cx, cy, 10, SSD1306_WHITE);
+    display.fillRect(cx - 10, cy - 2, 20, 2, SSD1306_BLACK); // cut top flat
+    display.fillRect(cx - 12, cy, 24, 8, SSD1306_BLACK);      // cut bottom
+    display.fillCircle(cx, cy + 2, 10, SSD1306_WHITE);
+    display.fillRect(cx - 10, cy - 10, 20, 10, SSD1306_BLACK);
+    // Redraw bowl properly
+    display.fillRoundRect(cx - 12, cy - 2, 24, 10, 4, SSD1306_WHITE);
+    display.fillRoundRect(cx - 10, cy, 20, 4, 2, SSD1306_BLACK);
+    // Diya lip/spout
+    display.fillRect(cx - 14, cy - 3, 28, 3, SSD1306_WHITE);
+    // Wick
+    display.drawFastVLine(cx, cy - 8, 6, SSD1306_WHITE);
+    // Flickering flame
+    int fl = frame % 5;
+    int fx = cx + (fl == 1 ? -1 : (fl == 3 ? 1 : 0));
+    int fh = (fl == 2 || fl == 4) ? 5 : 4;
+    display.fillCircle(fx, cy - 12, 3, SSD1306_WHITE);
+    display.fillCircle(fx, cy - 12 - fh, 2, SSD1306_WHITE);
+    display.drawPixel(fx, cy - 18, SSD1306_WHITE);
+    // Small base/stand
+    display.fillRect(cx - 4, cy + 7, 8, 3, SSD1306_WHITE);
+
+    // "SHUBH DEEPAWALI" text at top
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(12, 2);
+    display.print("SHUBH DEEPAWALI");
+
+    // Rangoli dot pattern around diya (circular dots)
+    for (int i = 0; i < 8; i++) {
+      // Simple integer trig approximation using lookup
+      int dx = 0, dy = 0;
+      switch (i % 8) {
+        case 0: dx = 22; dy = 0; break;
+        case 1: dx = 15; dy = -15; break;
+        case 2: dx = 0; dy = -22; break;
+        case 3: dx = -15; dy = -15; break;
+        case 4: dx = -22; dy = 0; break;
+        case 5: dx = -15; dy = 15; break;
+        case 6: dx = 0; dy = 22; break;
+        case 7: dx = 15; dy = 15; break;
+      }
+      int px = cx + dx;
+      int py = (cy - 4) + dy;
+      if (px > 1 && px < 126 && py > 1 && py < 62) {
+        if ((frame + i) % 3 == 0)
+          display.fillCircle(px, py, 2, SSD1306_WHITE);
+        else
+          display.drawCircle(px, py, 2, SSD1306_WHITE);
+      }
+    }
+
+  } else if (phase == 1) {
+    // Phase 2: Multiple diyas in a row (doorstep decoration)
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(34, 0);
+    display.print("~ DIWALI ~");
+
+    for (int d = 0; d < 5; d++) {
+      int dx = 8 + d * 24;
+      int dy = 38;
+      // Diya bowl
+      display.fillRoundRect(dx - 6, dy, 16, 6, 3, SSD1306_WHITE);
+      display.fillRect(dx - 8, dy - 1, 20, 2, SSD1306_WHITE);
+      // Base
+      display.fillRect(dx - 2, dy + 6, 8, 2, SSD1306_WHITE);
+      // Wick
+      display.drawFastVLine(dx + 2, dy - 6, 6, SSD1306_WHITE);
+      // Independent flickering flame per diya
+      int fl = (frame + d * 7) % 5;
+      int ffx = dx + 2 + (fl == 1 ? -1 : (fl == 3 ? 1 : 0));
+      int ffy = dy - 10;
+      display.fillCircle(ffx, ffy, 2, SSD1306_WHITE);
+      display.fillCircle(ffx, ffy - 2 - (fl % 2), 1, SSD1306_WHITE);
+      display.drawPixel(ffx, ffy - 5, SSD1306_WHITE);
+    }
+
+    // Decorative dots along bottom
+    for (int i = 0; i < 128; i += 4) {
+      if ((frame + i) % 6 < 3)
+        display.drawPixel(i, 54 + (i % 5), SSD1306_WHITE);
+    }
+    // Small stars twinkling
+    for (int i = 0; i < 6; i++) {
+      int sx = (i * 23 + frame * 2) % 128;
+      int sy = 12 + (i * 3) % 10;
+      if ((frame + i) % 4 < 2) display.drawPixel(sx, sy, SSD1306_WHITE);
+    }
+
+  } else if (phase == 2) {
+    // Phase 3: "HAPPY DIWALI" text with sparkle border animation
+    display.setTextColor(SSD1306_WHITE);
+
+    // Animated sparkle border
+    for (int i = 0; i < 128; i += 3) {
+      int offset = (frame * 2 + i) % 8;
+      if (offset < 4) {
+        display.drawPixel(i, 0, SSD1306_WHITE);
+        display.drawPixel(i, 1, SSD1306_WHITE);
+        display.drawPixel(127 - i, 62, SSD1306_WHITE);
+        display.drawPixel(127 - i, 63, SSD1306_WHITE);
+      }
+    }
+    for (int i = 0; i < 64; i += 3) {
+      int offset = (frame * 2 + i) % 8;
+      if (offset < 4) {
+        display.drawPixel(0, i, SSD1306_WHITE);
+        display.drawPixel(1, i, SSD1306_WHITE);
+        display.drawPixel(126, 63 - i, SSD1306_WHITE);
+        display.drawPixel(127, 63 - i, SSD1306_WHITE);
+      }
+    }
+
+    // "HAPPY" in big text
+    display.setTextSize(2);
+    int bobY = 10 + ((frame % 6 < 3) ? 0 : 2);
+    display.setCursor(20, bobY);
+    display.print("HAPPY");
+    // "DIWALI" below
+    display.setCursor(14, bobY + 22);
+    display.print("DIWALI");
+
+    // Corner decorations (small diyas)
+    for (int c = 0; c < 4; c++) {
+      int cx2 = (c < 2) ? 8 : 118;
+      int cy2 = (c % 2 == 0) ? 8 : 56;
+      if ((frame + c * 3) % 4 < 3)
+        display.fillCircle(cx2, cy2, 2, SSD1306_WHITE);
+    }
+
+  } else if (phase == 3) {
+    // Phase 4: Rangoli pattern - geometric symmetric design
+    int cx = 64, cy = 32;
+    int rot = (frame * 2) % 16;
+
+    // Central flower/mandala
+    display.fillCircle(cx, cy, 4, SSD1306_WHITE);
+    display.drawCircle(cx, cy, 8, SSD1306_WHITE);
+    display.drawCircle(cx, cy, 14, SSD1306_WHITE);
+    display.drawCircle(cx, cy, 22, SSD1306_WHITE);
+
+    // Petal dots on inner ring (8 petals)
+    int petalR = 11;
+    for (int i = 0; i < 8; i++) {
+      int pdx = 0, pdy = 0;
+      int idx = (i + rot / 2) % 8;
+      switch (idx) {
+        case 0: pdx = petalR; pdy = 0; break;
+        case 1: pdx = petalR * 7 / 10; pdy = -petalR * 7 / 10; break;
+        case 2: pdx = 0; pdy = -petalR; break;
+        case 3: pdx = -petalR * 7 / 10; pdy = -petalR * 7 / 10; break;
+        case 4: pdx = -petalR; pdy = 0; break;
+        case 5: pdx = -petalR * 7 / 10; pdy = petalR * 7 / 10; break;
+        case 6: pdx = 0; pdy = petalR; break;
+        case 7: pdx = petalR * 7 / 10; pdy = petalR * 7 / 10; break;
+      }
+      display.fillCircle(cx + pdx, cy + pdy, 2, SSD1306_WHITE);
+    }
+
+    // Outer decorative dots on outer ring
+    int outerR = 19;
+    for (int i = 0; i < 12; i++) {
+      // Approximate positions for 12 points
+      int odx = 0, ody = 0;
+      switch (i % 12) {
+        case 0: odx = outerR; ody = 0; break;
+        case 1: odx = outerR * 87 / 100; ody = -outerR / 2; break;
+        case 2: odx = outerR / 2; ody = -outerR * 87 / 100; break;
+        case 3: odx = 0; ody = -outerR; break;
+        case 4: odx = -outerR / 2; ody = -outerR * 87 / 100; break;
+        case 5: odx = -outerR * 87 / 100; ody = -outerR / 2; break;
+        case 6: odx = -outerR; ody = 0; break;
+        case 7: odx = -outerR * 87 / 100; ody = outerR / 2; break;
+        case 8: odx = -outerR / 2; ody = outerR * 87 / 100; break;
+        case 9: odx = 0; ody = outerR; break;
+        case 10: odx = outerR / 2; ody = outerR * 87 / 100; break;
+        case 11: odx = outerR * 87 / 100; ody = outerR / 2; break;
+      }
+      if ((frame + i) % 3 == 0)
+        display.fillCircle(cx + odx, cy + ody, 2, SSD1306_WHITE);
+      else
+        display.drawPixel(cx + odx, cy + ody, SSD1306_WHITE);
+    }
+
+    // Radial lines from center to edges (rotating)
+    for (int i = 0; i < 4; i++) {
+      int lx = 0, ly = 0;
+      int idx2 = (i + rot / 4) % 4;
+      switch (idx2) {
+        case 0: lx = 28; ly = 0; break;
+        case 1: lx = 0; ly = -28; break;
+        case 2: lx = -28; ly = 0; break;
+        case 3: lx = 0; ly = 28; break;
+      }
+      display.drawLine(cx, cy, cx + lx, cy + ly, SSD1306_WHITE);
+    }
+
+    // Corner dots
+    display.fillCircle(10, 8, 2, SSD1306_WHITE);
+    display.fillCircle(118, 8, 2, SSD1306_WHITE);
+    display.fillCircle(10, 56, 2, SSD1306_WHITE);
+    display.fillCircle(118, 56, 2, SSD1306_WHITE);
+
+  } else {
+    // Phase 5: Full celebration scene - diya + text + sparkles + stars
+    // Small diya at bottom-left
+    display.fillRoundRect(4, 50, 14, 5, 2, SSD1306_WHITE);
+    display.fillRect(2, 49, 18, 2, SSD1306_WHITE);
+    display.drawFastVLine(10, 43, 6, SSD1306_WHITE);
+    int fl2 = frame % 4;
+    display.fillCircle(10 + (fl2 == 1 ? -1 : 0), 40, 2, SSD1306_WHITE);
+    display.drawPixel(10, 37, SSD1306_WHITE);
+
+    // Small diya at bottom-right
+    display.fillRoundRect(110, 50, 14, 5, 2, SSD1306_WHITE);
+    display.fillRect(108, 49, 18, 2, SSD1306_WHITE);
+    display.drawFastVLine(116, 43, 6, SSD1306_WHITE);
+    int fl3 = (frame + 2) % 4;
+    display.fillCircle(116 + (fl3 == 2 ? 1 : 0), 40, 2, SSD1306_WHITE);
+    display.drawPixel(116, 37, SSD1306_WHITE);
+
+    // "HAPPY DIWALI" text centered
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(16, 4);
+    display.print("~ HAPPY DIWALI ~");
+    display.setTextSize(1);
+    display.setCursor(12, 18);
+    display.print("SHUBH DEEPAWALI");
+
+    // Stars raining down
+    for (int i = 0; i < 15; i++) {
+      int sx = (i * 9 + frame * 3) % 128;
+      int sy = (i * 7 + frame * 2) % 40 + 24;
+      display.drawPixel(sx, sy, SSD1306_WHITE);
+      display.drawPixel(sx + 1, sy, SSD1306_WHITE);
+      display.drawPixel(sx, sy + 1, SSD1306_WHITE);
+    }
+
+    // Sparkle dots everywhere
+    for (int i = 0; i < 10; i++) {
+      int px = (i * 13 + frame * 5) % 128;
+      int py = (i * 11 + frame * 3) % 30 + 28;
+      if ((frame + i) % 3 < 2)
+        display.drawPixel(px, py, SSD1306_WHITE);
+    }
+  }
+}
+
+// ==========================================
+// LORD RAM ANIMATION: Cinematic Slow-Motion Archery Scene
+// Ram Ji stands on LEFT, animates drawing Kodanda Bow, & shoots Arrow in SLOW MOTION across the sky!
+// ==========================================
+void drawRamFace(int frame) {
+  display.clearDisplay();
+
+  // Smooth 25 FPS time-base using millis (6.4 second complete loop)
+  unsigned long t = millis() % 6400; // 0 to 6399 ms
+
+  // Ram Ji Position on LEFT
+  const int bx = 14; // Base X
+  const int by = 5;  // Base Y
+
+  // Determine Animation Stage
+  // Stage 1 (0 to 1200ms): Stance & Nock Arrow
+  // Stage 2 (1200 to 2400ms): Draw Bowstring & Flex Bow
+  // Stage 3 (2400 to 3200ms): Divine Astra Charge (Full Draw)
+  // Stage 4 (3200 to 5600ms): Release & Slow-Motion Arrow Flight Across Sky (2.4s)
+  // Stage 5 (5600 to 6400ms): Target Impact Flash & Victory
+  int stage = 1;
+  if (t < 1200) stage = 1;
+  else if (t < 2400) stage = 2;
+  else if (t < 3200) stage = 3;
+  else if (t < 5600) stage = 4;
+  else stage = 5;
+
+  // Compute Bowstring Pull Position (nockX)
+  int nockX = 26; // Resting string position at x = 26
+  if (stage == 1) {
+    nockX = 26;
+  } else if (stage == 2) {
+    float p = (t - 1200) / 1200.0f; // 0.0 to 1.0
+    float ease = p * p * (3.0f - 2.0f * p); // Smooth ease in-out
+    nockX = (int)(26.0f - 12.0f * ease);    // Pulled back from 26 to 14
+  } else if (stage == 3) {
+    nockX = 14; // Full draw hold
+  } else {
+    nockX = 26; // Released forward
+  }
+
+  // ----------------------------------------------------
+  // 1. ENVIRONMENT: Ground, Floating Clouds & Twinkling Stars
+  // ----------------------------------------------------
+  // Ground line
+  display.drawFastHLine(0, 54, 128, SSD1306_WHITE);
+  // Grass tufts on ground
+  display.drawPixel(4, 53, SSD1306_WHITE);
+  display.drawPixel(28, 53, SSD1306_WHITE);
+  display.drawPixel(62, 53, SSD1306_WHITE);
+  display.drawPixel(95, 53, SSD1306_WHITE);
+  display.drawPixel(122, 53, SSD1306_WHITE);
+
+  // Soft drifting clouds in the upper sky (adds cinematic slow-mo depth)
+  int cloud1X = (int)((t / 80) % 160) - 20;
+  if (cloud1X >= -20 && cloud1X < 120) {
+    display.drawFastHLine(cloud1X, 8, 16, SSD1306_WHITE);
+    display.drawFastHLine(cloud1X + 4, 7, 8, SSD1306_WHITE);
+  }
+  int cloud2X = (int)(((t + 3200) / 100) % 170) - 20;
+  if (cloud2X >= -20 && cloud2X < 120) {
+    display.drawFastHLine(cloud2X, 14, 14, SSD1306_WHITE);
+    display.drawFastHLine(cloud2X + 3, 13, 8, SSD1306_WHITE);
+  }
+
+  // Subtle celestial stars
+  display.drawPixel(50, 4, SSD1306_WHITE);
+  display.drawPixel(75, 11, SSD1306_WHITE);
+  display.drawPixel(105, 5, SSD1306_WHITE);
+
+  // ----------------------------------------------------
+  // 2. BHAGWAN RAM SILHOUETTE (Standing proudly on LEFT)
+  // ----------------------------------------------------
+  // Divine Halo (Prabhamandal) around head
+  int haloR = (stage == 3) ? 10 : 9; // Expands when divine power charges
+  display.drawCircle(bx + 4, by + 12, haloR, SSD1306_WHITE);
+  if (stage == 3 && (frame % 2 == 0)) {
+    // Radiating aura rays in Stage 3
+    display.drawPixel(bx + 4, by + 12 - 12, SSD1306_WHITE);
+    display.drawPixel(bx + 4 - 12, by + 12, SSD1306_WHITE);
+    display.drawPixel(bx + 4 + 12, by + 12, SSD1306_WHITE);
+  }
+
+  // High Golden Crown (Kirit Mukut) with peak pearl
+  display.fillTriangle(bx + 4, by - 1, bx, by + 6, bx + 8, by + 6, SSD1306_WHITE);
+  display.fillRect(bx - 1, by + 6, 11, 2, SSD1306_WHITE); // Crown base band
+  display.drawPixel(bx + 4, by - 3, SSD1306_WHITE);       // Peak jewel/pearl
+
+  // Head & Divine Tilak
+  display.fillCircle(bx + 4, by + 12, 4, SSD1306_WHITE);
+  display.drawFastVLine(bx + 4, by + 10, 3, SSD1306_BLACK); // Urdhva Pundra Tilak
+  // Flowing Royal Hair behind
+  display.fillRect(bx - 2, by + 13, 3, 7, SSD1306_WHITE);
+  // Kundal (Earring)
+  display.drawPixel(bx + 8, by + 13, SSD1306_WHITE);
+
+  // Neck & Broad Torso
+  display.fillRect(bx + 2, by + 17, 5, 3, SSD1306_WHITE);
+  display.fillRect(bx, by + 20, 9, 14, SSD1306_WHITE);
+  // Royal Sash / Angavastra across chest
+  display.drawLine(bx, by + 20, bx + 8, by + 30, SSD1306_BLACK);
+
+  // Tarkash (Quiver with arrows) over back
+  display.fillRect(bx - 5, by + 19, 4, 11, SSD1306_WHITE);
+  display.drawLine(bx - 4, by + 19, bx - 7, by + 12, SSD1306_WHITE); // Arrow 1
+  display.drawLine(bx - 2, by + 19, bx - 5, by + 13, SSD1306_WHITE); // Arrow 2
+  display.drawPixel(bx - 7, by + 11, SSD1306_WHITE);                  // Arrow feather
+  display.drawPixel(bx - 5, by + 12, SSD1306_WHITE);
+
+  // Dhoti / Pitambar & Legs
+  display.fillRect(bx - 1, by + 34, 11, 3, SSD1306_WHITE); // Kamarbandh belt
+  display.fillRect(bx, by + 37, 4, 15, SSD1306_WHITE);     // Left leg
+  display.fillRect(bx + 5, by + 37, 4, 15, SSD1306_WHITE); // Right leg
+  display.fillRect(bx - 1, by + 52, 5, 2, SSD1306_WHITE);  // Left paduka
+  display.fillRect(bx + 5, by + 52, 5, 2, SSD1306_WHITE);  // Right paduka
+
+  // Left Arm: Holds the bow forward firmly at grip (31, 32)
+  display.drawLine(bx + 8, by + 22, 31, 32, SSD1306_WHITE);
+  display.drawLine(bx + 8, by + 23, 31, 33, SSD1306_WHITE);
+  display.fillCircle(31, 32, 2, SSD1306_WHITE); // Left hand clasping bow
+
+  // Right Arm: Dynamic drawing motion!
+  if (stage == 1) {
+    // Hand placing arrow on string
+    display.drawLine(bx + 4, by + 24, 25, 32, SSD1306_WHITE);
+    display.fillCircle(25, 32, 1, SSD1306_WHITE);
+  } else if (stage == 2 || stage == 3) {
+    // Right arm pulls string back towards chest/ear!
+    int elbowX = bx - 2;
+    int elbowY = by + 25;
+    display.drawLine(bx + 2, by + 22, elbowX, elbowY, SSD1306_WHITE); // Upper arm
+    display.drawLine(elbowX, elbowY, nockX, 32, SSD1306_WHITE);        // Forearm to nock
+    display.fillCircle(nockX, 32, 2, SSD1306_WHITE);                   // Hand pulling string
+  } else {
+    // Released follow-through pose (hand opened after release)
+    display.drawLine(bx + 2, by + 22, bx + 10, by + 28, SSD1306_WHITE);
+    display.drawPixel(bx + 11, by + 29, SSD1306_WHITE);
+  }
+
+  // ----------------------------------------------------
+  // 3. KODANDA DHANUSH (Authentic Recurve Bow on Left)
+  // ----------------------------------------------------
+  int bowTopY = 12, bowBotY = 52;
+  int tipX = 26;
+
+  // Stave flex: grip pulls back slightly under high draw tension
+  int gripX = (stage == 2 || stage == 3) ? 30 : 31;
+
+  // Draw authentic Kodanda recurve stave
+  for (int dy = 0; dy <= 20; dy++) {
+    float u = dy / 20.0f;
+    // Arches forward to x=34 at mid-limb, recurves to x=26 at tips
+    int wx = (int)(gripX + 13.0f * u - 18.0f * u * u + 0.5f);
+
+    // Upper limb
+    int yUp = 32 - dy;
+    if (yUp >= bowTopY) {
+      display.drawPixel(wx, yUp, SSD1306_WHITE);
+      display.drawPixel(wx - 1, yUp, SSD1306_WHITE); // 2px thickness
+    }
+    // Lower limb
+    int yDown = 32 + dy;
+    if (yDown <= bowBotY) {
+      display.drawPixel(wx, yDown, SSD1306_WHITE);
+      display.drawPixel(wx - 1, yDown, SSD1306_WHITE); // 2px thickness
+    }
+  }
+
+  // Horn Tips (Koti notches)
+  display.drawPixel(tipX - 1, bowTopY, SSD1306_WHITE);
+  display.drawPixel(tipX, bowTopY - 1, SSD1306_WHITE);
+  display.drawPixel(tipX - 1, bowBotY, SSD1306_WHITE);
+  display.drawPixel(tipX, bowBotY + 1, SSD1306_WHITE);
+
+  // Bow Grip wrap
+  display.fillRect(gripX - 2, 30, 3, 5, SSD1306_WHITE);
+
+  // ----------------------------------------------------
+  // 4. BOWSTRING (Pratyancha) ANIMATION
+  // ----------------------------------------------------
+  if (stage == 2 || stage == 3) {
+    // String is PULLED BACK into dynamic '>' angle by right hand!
+    display.drawLine(tipX, bowTopY, nockX, 32, SSD1306_WHITE);
+    display.drawLine(tipX, bowBotY, nockX, 32, SSD1306_WHITE);
+  } else {
+    // String is straight taut at resting position
+    // Subtle recoil vibration in the first 160ms of release
+    int recoil = (stage == 4 && (t - 3200 < 160)) ? (((frame % 2 == 0) ? 1 : -1)) : 0;
+    display.drawLine(tipX + recoil, bowTopY, tipX + recoil, bowBotY, SSD1306_WHITE);
+  }
+
+  // ----------------------------------------------------
+  // 5. THE ARROW (DIVYA BAAN) & SLOW-MOTION FLIGHT
+  // ----------------------------------------------------
+  if (stage == 1) {
+    // Arrow placed on resting bow
+    display.drawFastHLine(nockX, 32, 22, SSD1306_WHITE);
+    display.fillTriangle(nockX + 26, 32, nockX + 21, 29, nockX + 21, 35, SSD1306_WHITE);
+
+    // Text
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(54, 4);
+    display.print("JAI SHRI RAM");
+
+  } else if (stage == 2) {
+    // Arrow being drawn back with string
+    display.drawFastHLine(nockX, 32, 24, SSD1306_WHITE);
+    display.drawFastHLine(nockX, 33, 24, SSD1306_WHITE);
+    // Arrowhead
+    display.fillTriangle(nockX + 28, 32, nockX + 23, 29, nockX + 23, 35, SSD1306_WHITE);
+    // Tail fletchings at nock
+    display.drawLine(nockX, 32, nockX - 3, 29, SSD1306_WHITE);
+    display.drawLine(nockX, 33, nockX - 3, 36, SSD1306_WHITE);
+
+    // Text
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(48, 4);
+    display.print("PRATYANCHA...");
+
+  } else if (stage == 3) {
+    // FULL DRAW: Arrow charged with Divine Radiant Aura!
+    display.drawFastHLine(nockX, 32, 26, SSD1306_WHITE);
+    display.drawFastHLine(nockX, 33, 26, SSD1306_WHITE);
+    // Sharp arrowhead at x = 40
+    int tipArrowX = nockX + 26;
+    display.fillTriangle(tipArrowX + 6, 32, tipArrowX, 28, tipArrowX, 36, SSD1306_WHITE);
+    // Tail fletchings
+    display.drawLine(nockX, 32, nockX - 4, 28, SSD1306_WHITE);
+    display.drawLine(nockX, 33, nockX - 4, 37, SSD1306_WHITE);
+
+    // Divine Energy Charging: Pulsing radiance around arrowhead!
+    int pulse = (frame % 4);
+    display.drawCircle(tipArrowX + 6, 32, 3 + pulse, SSD1306_WHITE);
+    display.drawPixel(tipArrowX + 11 + pulse, 32, SSD1306_WHITE);
+    display.drawPixel(tipArrowX + 6, 32 - 5 - pulse, SSD1306_WHITE);
+    display.drawPixel(tipArrowX + 6, 32 + 5 + pulse, SSD1306_WHITE);
+
+    // Text
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(44, 4);
+    display.print("~ DIVYA BAAN ~");
+
+  } else if (stage == 4) {
+    // ========================================================
+    // STAGE 4: SLOW MOTION FLIGHT ACROSS THE SKY (2.4 SECONDS)
+    // ========================================================
+    unsigned long flightTime = t - 3200; // 0 to 2399 ms
+    float progress = (float)flightTime / 2400.0f; // 0.0 to 1.0
+
+    // Smooth horizontal position across open sky (x: 36 -> 122)
+    int arrowHeadX = 36 + (int)(progress * 86.0f);
+
+    // Aerodynamic trajectory: gentle subtle arc in flight
+    int arrowY = 32 - (int)(6.0f * sin(progress * 3.14159f));
+
+    // Double-thick 20px straight golden shaft
+    display.drawFastHLine(arrowHeadX - 20, arrowY, 20, SSD1306_WHITE);
+    display.drawFastHLine(arrowHeadX - 20, arrowY + 1, 20, SSD1306_WHITE);
+
+    // Sharp Barbed Arrowhead cutting through the air
+    display.fillTriangle(arrowHeadX + 6, arrowY, arrowHeadX, arrowY - 4, arrowHeadX, arrowY + 5, SSD1306_WHITE);
+    display.fillTriangle(arrowHeadX, arrowY - 1, arrowHeadX + 3, arrowY, arrowHeadX, arrowY + 2, SSD1306_BLACK);
+
+    // Tail Feathers (Fletchings)
+    display.drawLine(arrowHeadX - 20, arrowY, arrowHeadX - 24, arrowY - 4, SSD1306_WHITE);
+    display.drawLine(arrowHeadX - 17, arrowY, arrowHeadX - 21, arrowY - 4, SSD1306_WHITE);
+    display.drawLine(arrowHeadX - 20, arrowY + 1, arrowHeadX - 24, arrowY + 5, SSD1306_WHITE);
+    display.drawLine(arrowHeadX - 17, arrowY + 1, arrowHeadX - 21, arrowY + 5, SSD1306_WHITE);
+
+    // Pulsing Divine Aura ring around flying arrowhead
+    display.drawCircle(arrowHeadX + 6, arrowY, 2 + (frame % 3), SSD1306_WHITE);
+
+    // Glowing Particle Exhaust Trail (Slow-motion sparkles drifting behind)
+    for (int i = 1; i <= 6; i++) {
+      int tx = arrowHeadX - 20 - i * 6;
+      int ty = arrowY + ((i % 2 == 0) ? -1 : 1) * ((frame + i) % 3);
+      if (tx >= 28 && tx < 128) {
+        display.drawPixel(tx, ty, SSD1306_WHITE);
+        display.drawPixel(tx + 1, arrowY, SSD1306_WHITE);
+      }
+    }
+
+    // Top Slow-Motion indicator & text
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(46, 4);
+    display.print("JAI SHRI RAM");
+
+  } else {
+    // ========================================================
+    // STAGE 5: TARGET IMPACT FLASH & CELESTIAL VICTORY (800ms)
+    // ========================================================
+    unsigned long impTime = t - 5600; // 0 to 799 ms
+    int impactX = 120, impactY = 32;
+
+    // Expanding concentric shockwave rings
+    int r1 = (int)((impTime / 800.0f) * 22.0f);
+    display.drawCircle(impactX, impactY, r1, SSD1306_WHITE);
+    if (r1 > 4) display.drawCircle(impactX, impactY, r1 - 4, SSD1306_WHITE);
+
+    // Radiant Starburst explosion rays
+    for (int a = 0; a < 8; a++) {
+      float ang = a * 0.785f;
+      int rx1 = impactX + (int)(5 * cos(ang));
+      int ry1 = impactY + (int)(5 * sin(ang));
+      int rx2 = impactX + (int)((r1 + 6) * cos(ang));
+      int ry2 = impactY + (int)((r1 + 6) * sin(ang));
+      if (rx2 >= 0 && rx2 < 128 && ry2 >= 0 && ry2 < 64) {
+        display.drawLine(rx1, ry1, rx2, ry2, SSD1306_WHITE);
+      }
+    }
+
+    // Victory Banner
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(40, 18);
+    display.print("~ VICTORY ~");
+    display.setTextSize(1);
+    display.setCursor(34, 34);
+    display.print("JAI SHRI RAM");
+
+    // Celestial sparkles raining
+    for (int i = 0; i < 8; i++) {
+      int sx = 30 + (i * 12 + frame * 4) % 80;
+      int sy = 6 + (i * 7 + frame * 3) % 46;
+      display.drawPixel(sx, sy, SSD1306_WHITE);
+    }
+  }
+}
+
+// ==========================================
+// FIREWORKS / PATAKE ANIMATION (5 Phases)
+// ==========================================
+void drawFireworksFace(int frame) {
+  display.clearDisplay();
+  int phase = (frame / 25) % 5;
+
+  if (phase == 0) {
+    // Phase 1: Skyshot rocket launching + explosion at top
+    int progress = frame % 25;
+    int rocketY;
+
+    if (progress < 15) {
+      // Rocket flying up
+      rocketY = 60 - (progress * 4);
+      // Rocket body (small rectangle)
+      display.fillRect(62, rocketY, 4, 8, SSD1306_WHITE);
+      // Nose cone (triangle)
+      display.fillTriangle(60, rocketY, 64, rocketY - 5, 68, rocketY, SSD1306_WHITE);
+      // Exhaust trail
+      for (int t = 1; t <= 6; t++) {
+        int ty = rocketY + 8 + t * 3;
+        if (ty < 64 && (frame + t) % 2 == 0) {
+          display.drawPixel(63 + (t % 3 - 1), ty, SSD1306_WHITE);
+          display.drawPixel(64, ty, SSD1306_WHITE);
+        }
+      }
+      // Tail flame
+      int flk = frame % 3;
+      display.fillCircle(64, rocketY + 10, 2 + flk, SSD1306_WHITE);
+    } else {
+      // Explosion burst at top!
+      int burstFrame = progress - 15;
+      int burstR = burstFrame * 3 + 2;
+      int bx2 = 64, by2 = 10;
+      // Radial lines exploding outward
+      for (int i = 0; i < 12; i++) {
+        int dx = 0, dy = 0;
+        switch (i % 12) {
+          case 0: dx = burstR; dy = 0; break;
+          case 1: dx = burstR * 87 / 100; dy = -burstR / 2; break;
+          case 2: dx = burstR / 2; dy = -burstR * 87 / 100; break;
+          case 3: dx = 0; dy = -burstR; break;
+          case 4: dx = -burstR / 2; dy = -burstR * 87 / 100; break;
+          case 5: dx = -burstR * 87 / 100; dy = -burstR / 2; break;
+          case 6: dx = -burstR; dy = 0; break;
+          case 7: dx = -burstR * 87 / 100; dy = burstR / 2; break;
+          case 8: dx = -burstR / 2; dy = burstR * 87 / 100; break;
+          case 9: dx = 0; dy = burstR; break;
+          case 10: dx = burstR / 2; dy = burstR * 87 / 100; break;
+          case 11: dx = burstR * 87 / 100; dy = burstR / 2; break;
+        }
+        int ex = bx2 + dx;
+        int ey = by2 + dy;
+        if (ex >= 0 && ex < 128 && ey >= 0 && ey < 64) {
+          display.drawLine(bx2, by2, ex, ey, SSD1306_WHITE);
+          display.fillCircle(ex, ey, 1, SSD1306_WHITE);
+        }
+      }
+      // Center flash
+      if (burstFrame < 3)
+        display.fillCircle(bx2, by2, 4 - burstFrame, SSD1306_WHITE);
+    }
+
+    // Ground line
+    display.drawFastHLine(0, 62, 128, SSD1306_WHITE);
+
+  } else if (phase == 1) {
+    // Phase 2: Multiple burst explosions at random positions
+    // Use frame-seeded pseudo-random positions
+    for (int b = 0; b < 3; b++) {
+      int bx2 = 20 + (b * 43 + (frame / 4) * 17) % 88;
+      int by2 = 8 + (b * 19 + (frame / 4) * 7) % 30;
+      int age = (frame + b * 8) % 12;
+
+      if (age < 10) {
+        int r = age * 2 + 2;
+        // Expanding particle circle
+        for (int i = 0; i < 8; i++) {
+          int dx = 0, dy = 0;
+          switch (i) {
+            case 0: dx = r; dy = 0; break;
+            case 1: dx = r * 7 / 10; dy = -r * 7 / 10; break;
+            case 2: dx = 0; dy = -r; break;
+            case 3: dx = -r * 7 / 10; dy = -r * 7 / 10; break;
+            case 4: dx = -r; dy = 0; break;
+            case 5: dx = -r * 7 / 10; dy = r * 7 / 10; break;
+            case 6: dx = 0; dy = r; break;
+            case 7: dx = r * 7 / 10; dy = r * 7 / 10; break;
+          }
+          int px = bx2 + dx;
+          int py = by2 + dy;
+          if (px >= 0 && px < 128 && py >= 0 && py < 64) {
+            display.drawPixel(px, py, SSD1306_WHITE);
+            // Trailing dots
+            if (age < 6 && px + 1 < 128) display.drawPixel(px + 1, py, SSD1306_WHITE);
+          }
+        }
+        // Center flash for new bursts
+        if (age < 3)
+          display.fillCircle(bx2, by2, 3 - age, SSD1306_WHITE);
+      }
+    }
+
+    // Additional scattered sparkle particles
+    for (int i = 0; i < 20; i++) {
+      int sx = (i * 7 + frame * 5) % 128;
+      int sy = (i * 13 + frame * 3) % 50 + 5;
+      if ((frame + i) % 4 < 2)
+        display.drawPixel(sx, sy, SSD1306_WHITE);
+    }
+
+    // Ground
+    display.drawFastHLine(0, 62, 128, SSD1306_WHITE);
+
+  } else if (phase == 2) {
+    // Phase 3: Sparkler animation - radiating random short lines from center
+    int cx = 64, cy = 32;
+
+    // Core bright point
+    display.fillCircle(cx, cy, 2, SSD1306_WHITE);
+
+    // Radiating sparks - different each frame for sparkler effect
+    for (int i = 0; i < 16; i++) {
+      // Pseudo-random direction and length based on frame + i
+      int seed = (frame * 7 + i * 13) % 100;
+      int len = 4 + seed % 12;
+      int angle_idx = (frame * 3 + i * 23) % 16;
+      int dx = 0, dy = 0;
+      switch (angle_idx) {
+        case 0:  dx = len; dy = 0; break;
+        case 1:  dx = len * 92 / 100; dy = -len * 38 / 100; break;
+        case 2:  dx = len * 71 / 100; dy = -len * 71 / 100; break;
+        case 3:  dx = len * 38 / 100; dy = -len * 92 / 100; break;
+        case 4:  dx = 0; dy = -len; break;
+        case 5:  dx = -len * 38 / 100; dy = -len * 92 / 100; break;
+        case 6:  dx = -len * 71 / 100; dy = -len * 71 / 100; break;
+        case 7:  dx = -len * 92 / 100; dy = -len * 38 / 100; break;
+        case 8:  dx = -len; dy = 0; break;
+        case 9:  dx = -len * 92 / 100; dy = len * 38 / 100; break;
+        case 10: dx = -len * 71 / 100; dy = len * 71 / 100; break;
+        case 11: dx = -len * 38 / 100; dy = len * 92 / 100; break;
+        case 12: dx = 0; dy = len; break;
+        case 13: dx = len * 38 / 100; dy = len * 92 / 100; break;
+        case 14: dx = len * 71 / 100; dy = len * 71 / 100; break;
+        case 15: dx = len * 92 / 100; dy = len * 38 / 100; break;
+      }
+      int ex = cx + dx;
+      int ey = cy + dy;
+      if (ex >= 0 && ex < 128 && ey >= 0 && ey < 64) {
+        display.drawLine(cx, cy, ex, ey, SSD1306_WHITE);
+        // Bright tip
+        display.drawPixel(ex, ey, SSD1306_WHITE);
+      }
+    }
+
+    // Falling spark particles (gravity)
+    for (int i = 0; i < 8; i++) {
+      int px = cx + ((frame * 3 + i * 17) % 40) - 20;
+      int py = cy + ((frame + i * 5) % 20);
+      if (px >= 0 && px < 128 && py < 64 && (frame + i) % 3 < 2)
+        display.drawPixel(px, py, SSD1306_WHITE);
+    }
+
+    // "SPARKLER" text
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(36, 56);
+    display.print("SPARKLER");
+
+  } else if (phase == 3) {
+    // Phase 4: Ground fireworks (anar/flower pot) - fountain pattern
+    int potX = 60, potY = 56;
+
+    // Cone/pot shape at bottom
+    display.fillTriangle(potX, potY, potX + 8, potY, potX + 4, potY - 10, SSD1306_WHITE);
+    display.fillRect(potX - 2, potY, 12, 4, SSD1306_WHITE);
+
+    // Ground line
+    display.drawFastHLine(0, 60, 128, SSD1306_WHITE);
+
+    // Particles shooting upward and falling down (fountain)
+    for (int i = 0; i < 20; i++) {
+      int seed = (i * 7 + 3);
+      int spread = (seed % 11) - 5; // horizontal spread -5 to +5
+      int upSpeed = 3 + (seed % 4);
+      int age = (frame + i * 3) % 18;
+
+      // Parabolic trajectory (up then down with gravity)
+      int py = potY - 12 - (upSpeed * age) + (age * age / 3); // gravity pulls back
+      int px = potX + 4 + (spread * age / 4);
+
+      if (py >= 0 && py < 60 && px >= 0 && px < 128 && age < 16) {
+        display.drawPixel(px, py, SSD1306_WHITE);
+        // Thicker particles near source
+        if (age < 6 && px + 1 < 128)
+          display.drawPixel(px + 1, py, SSD1306_WHITE);
+      }
+    }
+
+    // Bright flash at pot mouth
+    int fl4 = frame % 3;
+    display.fillCircle(potX + 4, potY - 11, 2 + fl4, SSD1306_WHITE);
+
+    // Text
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(42, 2);
+    display.print("~ ANAR ~");
+
+  } else {
+    // Phase 5: Grand finale - multiple rockets, bursts, ground sparkles, text
+    // "HAPPY DIWALI" text at top
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(22, 0);
+    display.print("HAPPY DIWALI!");
+
+    // Multiple small rockets at different stages
+    for (int r = 0; r < 3; r++) {
+      int rx = 20 + r * 40;
+      int stage = (frame + r * 8) % 20;
+
+      if (stage < 10) {
+        // Rocket going up
+        int ry = 55 - stage * 4;
+        display.fillRect(rx, ry, 3, 5, SSD1306_WHITE);
+        display.fillTriangle(rx - 1, ry, rx + 1, ry - 3, rx + 4, ry, SSD1306_WHITE);
+        // Trail
+        for (int t = 1; t <= 3; t++) {
+          if (ry + 5 + t * 3 < 60)
+            display.drawPixel(rx + 1, ry + 5 + t * 3, SSD1306_WHITE);
+        }
+      } else {
+        // Burst!
+        int burstAge = stage - 10;
+        int br = burstAge * 2 + 1;
+        int by2 = 55 - 40;
+        for (int i = 0; i < 8; i++) {
+          int dx = 0, dy = 0;
+          switch (i) {
+            case 0: dx = br; dy = 0; break;
+            case 1: dx = br * 7 / 10; dy = -br * 7 / 10; break;
+            case 2: dx = 0; dy = -br; break;
+            case 3: dx = -br * 7 / 10; dy = -br * 7 / 10; break;
+            case 4: dx = -br; dy = 0; break;
+            case 5: dx = -br * 7 / 10; dy = br * 7 / 10; break;
+            case 6: dx = 0; dy = br; break;
+            case 7: dx = br * 7 / 10; dy = br * 7 / 10; break;
+          }
+          int px = rx + 1 + dx;
+          int py = by2 + dy;
+          if (px >= 0 && px < 128 && py >= 8 && py < 60)
+            display.drawPixel(px, py, SSD1306_WHITE);
+        }
+        if (burstAge < 2)
+          display.fillCircle(rx + 1, by2, 2, SSD1306_WHITE);
+      }
+    }
+
+    // Ground sparkles
+    for (int i = 0; i < 128; i += 5) {
+      if ((frame + i) % 4 < 2)
+        display.drawPixel(i, 58 + (i % 3), SSD1306_WHITE);
+    }
+
+    // Ground firework at center
+    int fAge = frame % 10;
+    for (int i = 0; i < 6; i++) {
+      int fpx = 64 + ((i * 5) - 15);
+      int fpy = 56 - fAge * 2 + (fAge * fAge / 6);
+      if (fpy >= 10 && fpy < 58 && fpx >= 0 && fpx < 128)
+        display.drawPixel(fpx, fpy, SSD1306_WHITE);
+    }
+
+    // Ground line
+    display.drawFastHLine(0, 61, 128, SSD1306_WHITE);
+  }
+}
+
+// Master function: Draw Clock with Smooth Slide Transition
+void drawClockFaceSlides() {
+  display.clearDisplay();
+
+  time_t nowSec;
+  time(&nowSec);
+  struct tm *t = gmtime(&nowSec);
+
+  // 8-second total carousel loop:
+  // 0 - 3500ms: Slide 1 (Time) stationary
+  // 3500 - 4000ms: Smooth horizontal slide from Slide 1 -> Slide 2
+  // 4000 - 7500ms: Slide 2 (Date) stationary
+  // 7500 - 8000ms: Smooth horizontal slide from Slide 2 -> Slide 1
+  unsigned long cycle = millis() % 8000;
+
+  if (cycle < 3500) {
+    drawSlide1_Time(0, t);
+  } else if (cycle < 4000) {
+    float p = (cycle - 3500) / 500.0f; // 0.0 to 1.0
+    float ease = p * p * (3.0f - 2.0f * p); // Cubic ease in-out
+    int shift = (int)(ease * 128.0f);
+    drawSlide1_Time(-shift, t);
+    drawSlide2_Date(128 - shift, t);
+  } else if (cycle < 7500) {
+    drawSlide2_Date(0, t);
+  } else {
+    float p = (cycle - 7500) / 500.0f; // 0.0 to 1.0
+    float ease = p * p * (3.0f - 2.0f * p); // Cubic ease in-out
+    int shift = (int)(ease * 128.0f);
+    drawSlide2_Date(-shift, t);
+    drawSlide1_Time(128 - shift, t);
+  }
+}
+
+// Standalone TIME Face (Uses same modern design from user sketch)
+void drawTimeFaceStandalone() {
+  display.clearDisplay();
+  time_t nowSec;
+  time(&nowSec);
+  struct tm *t = gmtime(&nowSec);
+  drawSlide1_Time(0, t);
+}
+
+// Standalone DATE Face (Uses same modern design from user sketch)
+void drawDateFaceStandalone() {
+  display.clearDisplay();
+  time_t nowSec;
+  time(&nowSec);
+  struct tm *t = gmtime(&nowSec);
+  drawSlide2_Date(0, t);
+}
+
+// Master Face Renderer by Identifier Name
+void renderFaceByName(const String &face) {
+  if (face == "idle") {
+    drawIdleFace(animFrame);
+  } else if (face == "happy") {
+    drawHappyFace(animFrame);
+  } else if (face == "love") {
+    drawLoveFace(animFrame);
+  } else if (face == "wink") {
+    drawWinkFace(animFrame);
+  } else if (face == "cool") {
+    drawCoolFace(animFrame);
+  } else if (face == "sleepy") {
+    drawSleepyFace(animFrame);
+  } else if (face == "angry") {
+    drawAngryFace(animFrame);
+  } else if (face == "sad") {
+    drawSadFace(animFrame);
+  } else if (face == "surprised") {
+    drawSurprisedFace(animFrame);
+  } else if (face == "laughing") {
+    drawLaughingFace(animFrame);
+  } else if (face == "confused") {
+    drawConfusedFace(animFrame);
+  } else if (face == "dizzy") {
+    drawDizzyFace(animFrame);
+  } else if (face == "birthday") {
+    drawBirthdayFace(animFrame);
+  } else if (face == "diwali") {
+    drawDiwaliFace(animFrame);
+  } else if (face == "ram") {
+    drawRamFace(animFrame);
+  } else if (face == "fireworks") {
+    drawFireworksFace(animFrame);
+  } else if (face == "time") {
+    drawTimeFaceStandalone();
+  } else if (face == "date") {
+    drawDateFaceStandalone();
+  } else if (face == "clock") {
+    drawClockFaceSlides();
+  } else if (face == "pixel_test") {
+    drawPixelTestMode(animFrame);
+  } else {
+    drawIdleFace(animFrame);
+  }
+}
+
+// Hardware-level smooth horizontal slide compositing across pages
+void renderSlideTransition(int shift) {
+  uint8_t *screen = display.getBuffer();
+  for (int page = 0; page < 8; page++) {
+    int pageOffset = page * 128;
+    for (int x = 0; x < 128; x++) {
+      int srcA_x = x + shift;
+      if (srcA_x >= 0 && srcA_x < 128) {
+        screen[pageOffset + x] = slideBufA[pageOffset + srcA_x];
+      } else {
+        int srcB_x = x - (128 - shift);
+        if (srcB_x >= 0 && srcB_x < 128) {
+          screen[pageOffset + x] = slideBufB[pageOffset + srcB_x];
+        } else {
+          screen[pageOffset + x] = 0;
+        }
+      }
+    }
+  }
+}
+
+// Slideshow Engine: Cycles slides by duration with smooth slide transitions
+void handleSlideshow() {
+  if (playlistCount == 0) {
+    renderFaceByName(currentFace);
+    return;
+  }
+
+  unsigned long now = millis();
+
+  if (inTransition) {
+    unsigned long elapsed = now - transitionStartTime;
+    if (elapsed >= TRANSITION_DURATION) {
+      // Transition complete!
+      inTransition = false;
+      currentSlideIndex = transitionToIndex;
+      slideStartTime = now;
+      renderFaceByName(playlist[currentSlideIndex].face);
+    } else {
+      // Calculate cubic easing
+      float p = (float)elapsed / (float)TRANSITION_DURATION;
+      float ease = p * p * (3.0f - 2.0f * p);
+      int shift = (int)(ease * 128.0f);
+      renderSlideTransition(shift);
+    }
+  } else {
+    unsigned long duration = (unsigned long)playlist[currentSlideIndex].durationSec * 1000UL;
+    if (now - slideStartTime >= duration) {
+      if (playlistCount > 1) {
+        transitionFromIndex = currentSlideIndex;
+        transitionToIndex = (currentSlideIndex + 1) % playlistCount;
+
+        // Take snapshots of outgoing slide and incoming slide
+        renderFaceByName(playlist[transitionFromIndex].face);
+        memcpy(slideBufA, display.getBuffer(), 1024);
+
+        renderFaceByName(playlist[transitionToIndex].face);
+        memcpy(slideBufB, display.getBuffer(), 1024);
+
+        inTransition = true;
+        transitionStartTime = now;
+        renderSlideTransition(0);
+      } else {
+        slideStartTime = now;
+        renderFaceByName(playlist[currentSlideIndex].face);
+      }
+    } else {
+      renderFaceByName(playlist[currentSlideIndex].face);
+    }
+  }
+}
+
+// ==========================================
+// RENDER CURRENT FACE / ACTIVE MODE
+// ==========================================
+void renderCurrentFace() {
+  if (slideshowActive) {
+    handleSlideshow();
+  } else {
+    renderFaceByName(currentFace);
+  }
   display.display();
+}
+
+// ==========================================
+// NVS SETTINGS: Persistent Save / Load
+// ==========================================
+void saveSettings() {
+  prefs.begin("mybot", false); // false = read-write
+  prefs.putString("face", currentFace);
+  prefs.putBool("slideshow", slideshowActive);
+  // Save full playlist as compact string: "face:dur,face:dur,..."
+  String pl = "";
+  for (int i = 0; i < playlistCount; i++) {
+    if (i > 0) pl += ",";
+    pl += playlist[i].face + ":" + String(playlist[i].durationSec);
+  }
+  prefs.putString("playlist", pl);
+  prefs.end();
+  Serial.printf("[NVS] Settings saved: face=%s slideshow=%d playlist=%s\n",
+                currentFace.c_str(), slideshowActive, pl.c_str());
+}
+
+void loadSettings() {
+  prefs.begin("mybot", true); // true = read-only
+  currentFace    = prefs.getString("face", "idle");
+  slideshowActive = prefs.getBool("slideshow", false);
+  String pl       = prefs.getString("playlist", "");
+  prefs.end();
+
+  // Parse playlist string
+  if (pl.length() > 0) {
+    playlistCount = 0;
+    int start = 0;
+    while (start < (int)pl.length() && playlistCount < MAX_SLIDES) {
+      int comma = pl.indexOf(',', start);
+      String token = (comma == -1) ? pl.substring(start) : pl.substring(start, comma);
+      token.trim();
+      if (token.length() > 0) {
+        int colon = token.indexOf(':');
+        if (colon != -1) {
+          playlist[playlistCount].face        = token.substring(0, colon);
+          playlist[playlistCount].durationSec = token.substring(colon + 1).toInt();
+          if (playlist[playlistCount].durationSec < 1) playlist[playlistCount].durationSec = 3;
+          playlistCount++;
+        }
+      }
+      if (comma == -1) break;
+      start = comma + 1;
+    }
+  }
+
+  if (slideshowActive) {
+    currentSlideIndex = 0;
+    slideStartTime    = millis();
+    inTransition      = false;
+  }
+  Serial.printf("[NVS] Loaded: face=%s slideshow=%d playlistCount=%d\n",
+                currentFace.c_str(), slideshowActive, playlistCount);
 }
 
 // ==========================================
@@ -913,14 +2610,77 @@ void renderCurrentFace() {
 // ==========================================
 void handleRoot() { server.send(200, "text/html", INDEX_HTML); }
 
+// Single Face Selector: Stops slideshow, locks face, and saves to NVS
 void handleSetFace() {
   if (server.hasArg("face")) {
     currentFace = server.arg("face");
+    slideshowActive = false;
     animFrame = 0;
-    Serial.printf("[WEB] Emotion changed to: %s\n", currentFace.c_str());
+    saveSettings(); // <<< Persistent save to NVS flash!
+    Serial.printf("[WEB] Emotion set to: %s (Single Mode) — Saved to NVS\n", currentFace.c_str());
     server.send(200, "text/plain", "OK: " + currentFace);
   } else {
     server.send(400, "text/plain", "Missing face parameter");
+  }
+}
+
+// Custom Playlist / Slideshow Setup — Saves to NVS
+void handleSetSlides() {
+  if (server.hasArg("active")) {
+    slideshowActive = (server.arg("active") == "1");
+    if (slideshowActive) {
+      currentSlideIndex = 0;
+      slideStartTime = millis();
+      inTransition = false;
+    }
+  }
+  if (server.hasArg("items")) {
+    String itemsStr = server.arg("items");
+    playlistCount = 0;
+    int start = 0;
+    while (start < (int)itemsStr.length() && playlistCount < MAX_SLIDES) {
+      int comma = itemsStr.indexOf(',', start);
+      String token = (comma == -1) ? itemsStr.substring(start) : itemsStr.substring(start, comma);
+      token.trim();
+      if (token.length() > 0) {
+        int colon = token.indexOf(':');
+        if (colon != -1) {
+          playlist[playlistCount].face = token.substring(0, colon);
+          playlist[playlistCount].durationSec = token.substring(colon + 1).toInt();
+          if (playlist[playlistCount].durationSec < 1) playlist[playlistCount].durationSec = 3;
+          playlistCount++;
+        }
+      }
+      if (comma == -1) break;
+      start = comma + 1;
+    }
+    currentSlideIndex = 0;
+    slideStartTime = millis();
+    inTransition = false;
+    Serial.printf("[SLIDESHOW] Loaded %d slides. Active: %d\n", playlistCount, slideshowActive);
+  }
+  saveSettings(); // <<< Persistent save to NVS flash!
+  server.send(200, "text/plain", "OK: Slides Updated & Saved");
+}
+
+
+// Handle Time Sync from User Phone / Browser
+void handleSyncTime() {
+  if (server.hasArg("epoch")) {
+    time_t epoch = (time_t)server.arg("epoch").toInt();
+    long tzOffsetSec = 0;
+    if (server.hasArg("tz")) {
+      tzOffsetSec = server.arg("tz").toInt() * 60; // minutes to seconds
+    }
+    struct timeval tv;
+    tv.tv_sec = epoch + tzOffsetSec;
+    tv.tv_usec = 0;
+    settimeofday(&tv, NULL);
+    timeSynced = true;
+    Serial.printf("[TIME] Synced with user device! Epoch: %ld, TZ: %ld sec\n", (long)epoch, tzOffsetSec);
+    server.send(200, "text/plain", "OK: Time Synced");
+  } else {
+    server.send(400, "text/plain", "Missing epoch parameter");
   }
 }
 
@@ -987,6 +2747,9 @@ void setup() {
   Serial.println("  MY BOT - ESP32-C3 SuperMini Stable AP   ");
   Serial.println("==========================================");
 
+  // Load saved face/slideshow settings from NVS flash memory
+  loadSettings();
+
   // Status LED on
   pinMode(STATUS_LED, OUTPUT);
   digitalWrite(STATUS_LED, LOW); // LOW = ON on SuperMini
@@ -1027,6 +2790,8 @@ void setup() {
 
   server.on("/", HTTP_GET, handleRoot);
   server.on("/set", HTTP_GET, handleSetFace);
+  server.on("/setslides", HTTP_GET, handleSetSlides);
+  server.on("/synctime", HTTP_GET, handleSyncTime);
   server.on("/sleep", HTTP_GET, []() {
     server.send(200, "text/plain", "OK: Turning off WiFi to save battery");
     delay(200);
@@ -1209,21 +2974,28 @@ void loop() {
   }
 
   // ==========================================
-  // 2. OLED Animation Update (180ms - Smooth & CPU friendly)
+  // 2. OLED Animation Update
   // ==========================================
-  if (now - lastAnimUpdate >= 180) {
-    lastAnimUpdate = now;
+  // Keep face animation natural (180ms per frame)
+  static unsigned long lastFaceFrame = 0;
+  if (now - lastFaceFrame >= 180) {
+    lastFaceFrame = now;
     animFrame++;
+  }
+
+  // Display refresh: 40ms (~25 FPS) for butter-smooth sliding transitions & second ticks,
+  // 180ms when stationary face is shown
+  int animInterval = (slideshowActive || currentFace == "time" || currentFace == "clock" || currentFace == "ram" || currentFace == "fireworks") ? 40 : 180;
+  if (now - lastAnimUpdate >= animInterval) {
+    lastAnimUpdate = now;
     if (oledConnected) {
       renderCurrentFace();
 
-      // Top-right corner indicators:
-      if (wifiEnabled) {
+      // Top-right corner indicators (shown on emoji faces, suppressed on clean clock/date):
+      if (wifiEnabled && currentFace != "time" && currentFace != "date" && currentFace != "clock" && currentFace != "ram") {
         if (WiFi.softAPgetStationNum() > 0) {
-          // Connected: Solid dot indicator
           display.fillCircle(124, 4, 2, SSD1306_WHITE);
         } else if ((animFrame % 4) < 2) {
-          // Waiting for connection: Blinking dot
           display.fillCircle(124, 4, 2, SSD1306_WHITE);
         }
         display.display();
