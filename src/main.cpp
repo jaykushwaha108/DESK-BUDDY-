@@ -1494,289 +1494,355 @@ void drawSlide2_Date(int xOffset, struct tm *t) {
 // ==========================================
 // DIWALI CELEBRATION ANIMATION (5 Phases)
 // ==========================================
+// ==========================================
+// DIWALI ANIMATION: Realistic Diya & Progressive Animated Rangoli
+// 1. Stylish "HAPPY DIWALI" Typography
+// 2. Realistic Clay Diya with Slow-Motion Flickering Flame & Halo
+// 3. Step-by-Step Animated Rangoli Construction (Center -> Full Mandala)
+// 4. Grand Completed Celebration
+// ==========================================
 void drawDiwaliFace(int frame) {
   display.clearDisplay();
-  int phase = (frame / 25) % 5;
 
-  if (phase == 0) {
-    // Phase 1: Animated diya with flickering flame + rangoli dots
-    // Diya body (oil lamp) - bowl shape at center
-    int cx = 64, cy = 42;
-    display.fillCircle(cx, cy, 10, SSD1306_WHITE);
-    display.fillRect(cx - 10, cy - 2, 20, 2, SSD1306_BLACK); // cut top flat
-    display.fillRect(cx - 12, cy, 24, 8, SSD1306_BLACK);      // cut bottom
-    display.fillCircle(cx, cy + 2, 10, SSD1306_WHITE);
-    display.fillRect(cx - 10, cy - 10, 20, 10, SSD1306_BLACK);
-    // Redraw bowl properly
-    display.fillRoundRect(cx - 12, cy - 2, 24, 10, 4, SSD1306_WHITE);
-    display.fillRoundRect(cx - 10, cy, 20, 4, 2, SSD1306_BLACK);
-    // Diya lip/spout
-    display.fillRect(cx - 14, cy - 3, 28, 3, SSD1306_WHITE);
-    // Wick
-    display.drawFastVLine(cx, cy - 8, 6, SSD1306_WHITE);
-    // Flickering flame
-    int fl = frame % 5;
-    int fx = cx + (fl == 1 ? -1 : (fl == 3 ? 1 : 0));
-    int fh = (fl == 2 || fl == 4) ? 5 : 4;
-    display.fillCircle(fx, cy - 12, 3, SSD1306_WHITE);
-    display.fillCircle(fx, cy - 12 - fh, 2, SSD1306_WHITE);
-    display.drawPixel(fx, cy - 18, SSD1306_WHITE);
-    // Small base/stand
-    display.fillRect(cx - 4, cy + 7, 8, 3, SSD1306_WHITE);
+  // 11.0 second complete cycle using millis (smooth 25 FPS time-base)
+  unsigned long t = millis() % 11000; // 0 to 10999 ms
 
-    // "SHUBH DEEPAWALI" text at top
+  if (t < 2200) {
+    // ========================================================
+    // SECTION 1: STYLISH "HAPPY DIWALI" TYPOGRAPHY (0 to 2200ms)
+    // Clean, bold, elegant font with festive ornamental borders
+    // ========================================================
     display.setTextColor(SSD1306_WHITE);
+
+    // Ornate Top & Bottom Divider Lines with center lotus pearl
+    display.drawFastHLine(16, 4, 96, SSD1306_WHITE);
+    display.fillCircle(64, 4, 2, SSD1306_WHITE);
+    display.drawPixel(64, 1, SSD1306_WHITE);
+    display.drawPixel(64, 7, SSD1306_WHITE);
+
+    display.drawFastHLine(16, 59, 96, SSD1306_WHITE);
+    display.fillCircle(64, 59, 2, SSD1306_WHITE);
+    display.drawPixel(64, 56, SSD1306_WHITE);
+    display.drawPixel(64, 62, SSD1306_WHITE);
+
+    // Corner decorative sparkles
+    if (frame % 2 == 0) {
+      display.drawPixel(6, 6, SSD1306_WHITE);
+      display.drawPixel(121, 6, SSD1306_WHITE);
+      display.drawPixel(6, 57, SSD1306_WHITE);
+      display.drawPixel(121, 57, SSD1306_WHITE);
+    }
+
+    // Render "HAPPY" in FreeSansBold9pt7b
+    display.setFont(&FreeSansBold9pt7b);
     display.setTextSize(1);
-    display.setCursor(12, 2);
-    display.print("SHUBH DEEPAWALI");
-
-    // Rangoli dot pattern around diya (circular dots)
-    for (int i = 0; i < 8; i++) {
-      // Simple integer trig approximation using lookup
-      int dx = 0, dy = 0;
-      switch (i % 8) {
-        case 0: dx = 22; dy = 0; break;
-        case 1: dx = 15; dy = -15; break;
-        case 2: dx = 0; dy = -22; break;
-        case 3: dx = -15; dy = -15; break;
-        case 4: dx = -22; dy = 0; break;
-        case 5: dx = -15; dy = 15; break;
-        case 6: dx = 0; dy = 22; break;
-        case 7: dx = 15; dy = 15; break;
-      }
-      int px = cx + dx;
-      int py = (cy - 4) + dy;
-      if (px > 1 && px < 126 && py > 1 && py < 62) {
-        if ((frame + i) % 3 == 0)
-          display.fillCircle(px, py, 2, SSD1306_WHITE);
-        else
-          display.drawCircle(px, py, 2, SSD1306_WHITE);
-      }
-    }
-
-  } else if (phase == 1) {
-    // Phase 2: Multiple diyas in a row (doorstep decoration)
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    display.setCursor(34, 0);
-    display.print("~ DIWALI ~");
-
-    for (int d = 0; d < 5; d++) {
-      int dx = 8 + d * 24;
-      int dy = 38;
-      // Diya bowl
-      display.fillRoundRect(dx - 6, dy, 16, 6, 3, SSD1306_WHITE);
-      display.fillRect(dx - 8, dy - 1, 20, 2, SSD1306_WHITE);
-      // Base
-      display.fillRect(dx - 2, dy + 6, 8, 2, SSD1306_WHITE);
-      // Wick
-      display.drawFastVLine(dx + 2, dy - 6, 6, SSD1306_WHITE);
-      // Independent flickering flame per diya
-      int fl = (frame + d * 7) % 5;
-      int ffx = dx + 2 + (fl == 1 ? -1 : (fl == 3 ? 1 : 0));
-      int ffy = dy - 10;
-      display.fillCircle(ffx, ffy, 2, SSD1306_WHITE);
-      display.fillCircle(ffx, ffy - 2 - (fl % 2), 1, SSD1306_WHITE);
-      display.drawPixel(ffx, ffy - 5, SSD1306_WHITE);
-    }
-
-    // Decorative dots along bottom
-    for (int i = 0; i < 128; i += 4) {
-      if ((frame + i) % 6 < 3)
-        display.drawPixel(i, 54 + (i % 5), SSD1306_WHITE);
-    }
-    // Small stars twinkling
-    for (int i = 0; i < 6; i++) {
-      int sx = (i * 23 + frame * 2) % 128;
-      int sy = 12 + (i * 3) % 10;
-      if ((frame + i) % 4 < 2) display.drawPixel(sx, sy, SSD1306_WHITE);
-    }
-
-  } else if (phase == 2) {
-    // Phase 3: "HAPPY DIWALI" text with sparkle border animation
-    display.setTextColor(SSD1306_WHITE);
-
-    // Animated sparkle border
-    for (int i = 0; i < 128; i += 3) {
-      int offset = (frame * 2 + i) % 8;
-      if (offset < 4) {
-        display.drawPixel(i, 0, SSD1306_WHITE);
-        display.drawPixel(i, 1, SSD1306_WHITE);
-        display.drawPixel(127 - i, 62, SSD1306_WHITE);
-        display.drawPixel(127 - i, 63, SSD1306_WHITE);
-      }
-    }
-    for (int i = 0; i < 64; i += 3) {
-      int offset = (frame * 2 + i) % 8;
-      if (offset < 4) {
-        display.drawPixel(0, i, SSD1306_WHITE);
-        display.drawPixel(1, i, SSD1306_WHITE);
-        display.drawPixel(126, 63 - i, SSD1306_WHITE);
-        display.drawPixel(127, 63 - i, SSD1306_WHITE);
-      }
-    }
-
-    // "HAPPY" in big text
-    display.setTextSize(2);
-    int bobY = 10 + ((frame % 6 < 3) ? 0 : 2);
-    display.setCursor(20, bobY);
+    int16_t x1, y1;
+    uint16_t w1, h1;
+    display.getTextBounds("HAPPY", 0, 0, &x1, &y1, &w1, &h1);
+    int happyX = (128 - w1) / 2 - x1;
+    display.setCursor(happyX, 24);
     display.print("HAPPY");
-    // "DIWALI" below
-    display.setCursor(14, bobY + 22);
+
+    // Render "DIWALI" in FreeSansBold9pt7b
+    display.getTextBounds("DIWALI", 0, 0, &x1, &y1, &w1, &h1);
+    int diwaliX = (128 - w1) / 2 - x1;
+    display.setCursor(diwaliX, 48);
     display.print("DIWALI");
 
-    // Corner decorations (small diyas)
-    for (int c = 0; c < 4; c++) {
-      int cx2 = (c < 2) ? 8 : 118;
-      int cy2 = (c % 2 == 0) ? 8 : 56;
-      if ((frame + c * 3) % 4 < 3)
-        display.fillCircle(cx2, cy2, 2, SSD1306_WHITE);
-    }
+    // Reset font back to default system font
+    display.setFont(NULL);
 
-  } else if (phase == 3) {
-    // Phase 4: Rangoli pattern - geometric symmetric design
-    int cx = 64, cy = 32;
-    int rot = (frame * 2) % 16;
-
-    // Central flower/mandala
-    display.fillCircle(cx, cy, 4, SSD1306_WHITE);
-    display.drawCircle(cx, cy, 8, SSD1306_WHITE);
-    display.drawCircle(cx, cy, 14, SSD1306_WHITE);
-    display.drawCircle(cx, cy, 22, SSD1306_WHITE);
-
-    // Petal dots on inner ring (8 petals)
-    int petalR = 11;
-    for (int i = 0; i < 8; i++) {
-      int pdx = 0, pdy = 0;
-      int idx = (i + rot / 2) % 8;
-      switch (idx) {
-        case 0: pdx = petalR; pdy = 0; break;
-        case 1: pdx = petalR * 7 / 10; pdy = -petalR * 7 / 10; break;
-        case 2: pdx = 0; pdy = -petalR; break;
-        case 3: pdx = -petalR * 7 / 10; pdy = -petalR * 7 / 10; break;
-        case 4: pdx = -petalR; pdy = 0; break;
-        case 5: pdx = -petalR * 7 / 10; pdy = petalR * 7 / 10; break;
-        case 6: pdx = 0; pdy = petalR; break;
-        case 7: pdx = petalR * 7 / 10; pdy = petalR * 7 / 10; break;
-      }
-      display.fillCircle(cx + pdx, cy + pdy, 2, SSD1306_WHITE);
-    }
-
-    // Outer decorative dots on outer ring
-    int outerR = 19;
-    for (int i = 0; i < 12; i++) {
-      // Approximate positions for 12 points
-      int odx = 0, ody = 0;
-      switch (i % 12) {
-        case 0: odx = outerR; ody = 0; break;
-        case 1: odx = outerR * 87 / 100; ody = -outerR / 2; break;
-        case 2: odx = outerR / 2; ody = -outerR * 87 / 100; break;
-        case 3: odx = 0; ody = -outerR; break;
-        case 4: odx = -outerR / 2; ody = -outerR * 87 / 100; break;
-        case 5: odx = -outerR * 87 / 100; ody = -outerR / 2; break;
-        case 6: odx = -outerR; ody = 0; break;
-        case 7: odx = -outerR * 87 / 100; ody = outerR / 2; break;
-        case 8: odx = -outerR / 2; ody = outerR * 87 / 100; break;
-        case 9: odx = 0; ody = outerR; break;
-        case 10: odx = outerR / 2; ody = outerR * 87 / 100; break;
-        case 11: odx = outerR * 87 / 100; ody = outerR / 2; break;
-      }
-      if ((frame + i) % 3 == 0)
-        display.fillCircle(cx + odx, cy + ody, 2, SSD1306_WHITE);
-      else
-        display.drawPixel(cx + odx, cy + ody, SSD1306_WHITE);
-    }
-
-    // Radial lines from center to edges (rotating)
+    // Twinkling festive side stars
     for (int i = 0; i < 4; i++) {
-      int lx = 0, ly = 0;
-      int idx2 = (i + rot / 4) % 4;
-      switch (idx2) {
-        case 0: lx = 28; ly = 0; break;
-        case 1: lx = 0; ly = -28; break;
-        case 2: lx = -28; ly = 0; break;
-        case 3: lx = 0; ly = 28; break;
-      }
-      display.drawLine(cx, cy, cx + lx, cy + ly, SSD1306_WHITE);
+      int sx = (i < 2) ? (10 + i * 4) : (114 + (i - 2) * 4);
+      int sy = 24 + ((i % 2 == 0) ? -6 : 14);
+      if ((frame + i) % 3 < 2) display.drawPixel(sx, sy, SSD1306_WHITE);
     }
 
-    // Corner dots
-    display.fillCircle(10, 8, 2, SSD1306_WHITE);
-    display.fillCircle(118, 8, 2, SSD1306_WHITE);
-    display.fillCircle(10, 56, 2, SSD1306_WHITE);
-    display.fillCircle(118, 56, 2, SSD1306_WHITE);
+  } else if (t < 5200) {
+    // ========================================================
+    // SECTION 2: REALISTIC CLAY DIYA WITH SLOW-MOTION FLAME (2200 to 5200ms)
+    // Terracotta clay diya: base, bowl, oil pool, cotton wick, & slow-motion breathing flame!
+    // ========================================================
+    unsigned long dt = t - 2200; // 0 to 2999 ms
+    const int cx = 64, cy = 44;  // Center of Diya
+
+    // 1. Terracotta Pedestal Base (Stand)
+    display.fillRoundRect(cx - 10, cy + 9, 20, 4, 1, SSD1306_WHITE);
+    display.drawFastHLine(cx - 13, cy + 13, 26, SSD1306_WHITE); // Bottom foot line
+
+    // 2. Terracotta Clay Bowl (Mitti ka Deepak)
+    // Smooth tapering earthen curve
+    for (int dy = 0; dy <= 12; dy++) {
+      float u = dy / 12.0f;
+      // Width tapers from 23px at top (dy=0) down to 10px at bottom (dy=12)
+      int w = (int)(23.0f - 13.0f * u * u);
+      display.drawFastHLine(cx - w, cy - 3 + dy, 2 * w + 1, SSD1306_WHITE);
+    }
+
+    // Carved decorative clay band on bowl
+    display.drawFastHLine(cx - 16, cy + 3, 33, SSD1306_BLACK);
+    for (int d = -12; d <= 12; d += 4) {
+      display.drawPixel(cx + d, cy + 5, SSD1306_BLACK);
+    }
+
+    // 3. Diya Top Rim & Inner Oil Pool (Ghee / Tel Kund)
+    display.fillRoundRect(cx - 24, cy - 5, 48, 5, 2, SSD1306_WHITE); // Top wide lip
+    display.fillRoundRect(cx - 19, cy - 4, 38, 3, 1, SSD1306_BLACK); // Inner oil pool
+
+    // 4. Cotton Wick (Rui ki Baati)
+    display.drawFastVLine(cx - 1, cy - 10, 7, SSD1306_WHITE);
+    display.drawFastVLine(cx, cy - 10, 7, SSD1306_WHITE);
+    display.drawFastVLine(cx + 1, cy - 10, 7, SSD1306_WHITE);
+
+    // 5. SLOW-MOTION FLICKERING FLAME (Pavitra Deepak Jyoti)
+    // Slow, realistic breathing motion (~1.2 Hz)
+    float sway = 2.4f * sin(dt * 0.0035f) + 0.8f * sin(dt * 0.008f);
+    float flameH = 18.0f + 3.0f * sin(dt * 0.005f); // Flame stretches & breathes
+    int wickY = cy - 10; // Top of wick
+
+    // Draw realistic almond/teardrop shaped flame
+    for (int h = 0; h <= (int)flameH; h++) {
+      float v = (float)h / flameH; // 0.0 (base) to 1.0 (apex)
+      // Teardrop width: widest at lower 35%, tapers to apex at top
+      float w = 5.6f * sin(v * 3.14159f) * (1.3f - 0.6f * v);
+      int fx = cx + (int)(sway * v * v); // Tip sways more than base
+      int fy = wickY - h;
+
+      if (w > 0.4f) {
+        display.drawFastHLine(fx - (int)w, fy, (int)(2 * w) + 1, SSD1306_WHITE);
+      } else {
+        display.drawPixel(fx, fy, SSD1306_WHITE);
+      }
+
+      // Inner cooler core (dark silhouette near wick center)
+      if (h >= 2 && h <= 8 && w > 1.8f) {
+        display.drawFastHLine(fx - 1, fy, 3, SSD1306_BLACK);
+      }
+    }
+
+    // 6. Radiant Glowing Halo (Pulsing Light Aura around flame)
+    int auraR = 15 + (int)(3.0f * sin(dt * 0.006f));
+    int auraY = wickY - 7;
+    for (int a = 0; a < 16; a++) {
+      float ang = a * 0.3927f;
+      int ax = cx + (int)(auraR * cos(ang));
+      int ay = auraY + (int)(auraR * 0.82f * sin(ang));
+      if ((frame + a) % 2 == 0 && ax >= 0 && ax < 128 && ay >= 0 && ay < 64) {
+        display.drawPixel(ax, ay, SSD1306_WHITE);
+      }
+    }
+
+    // Micro-sparkles slowly drifting upward from flame tip
+    for (int s = 0; s < 3; s++) {
+      int spY = (wickY - (int)flameH - 2) - ((int)(dt * 0.02f + s * 8) % 18);
+      int spX = cx + (int)(sway) + ((s % 2 == 0) ? -2 : 2) * (s + 1);
+      if (spY >= 0 && spY < 64 && spX >= 0 && spX < 128) {
+        display.drawPixel(spX, spY, SSD1306_WHITE);
+      }
+    }
+
+    // Soft corner diya dots
+    display.drawPixel(10, 52, SSD1306_WHITE);
+    display.drawPixel(118, 52, SSD1306_WHITE);
+
+  } else if (t < 9000) {
+    // ========================================================
+    // SECTION 3: STEP-BY-STEP ANIMATED RANGOLI CONSTRUCTION (5200 to 9000ms)
+    // The sacred Mandala draws itself progressively: Center Lotus -> Inner Star -> Outer Scallops -> Pearls!
+    // ========================================================
+    unsigned long rt = t - 5200; // 0 to 3799 ms
+    float prog = (float)rt / 3800.0f; // 0.0 to 1.0 (construction progress)
+    const int cx = 64, cy = 32;
+
+    // --- STEP 1: Center Lotus Blossom (prog: 0.0 to 0.30) ---
+    display.fillCircle(cx, cy, 3, SSD1306_WHITE); // Central sacred Bindu
+
+    float p1 = (prog < 0.30f) ? (prog / 0.30f) : 1.0f;
+    int maxPetals = (int)(p1 * 8.9f); // Petals appear 1 by 1
+
+    for (int i = 0; i < 8; i++) {
+      if (i < maxPetals) {
+        float ang = i * 0.7854f; // 45 degrees
+        float dist = 7.0f * ((i == maxPetals - 1) ? (p1 * 8.0f - i) : 1.0f);
+        if (dist > 7.0f) dist = 7.0f;
+
+        int px = cx + (int)(dist * cos(ang));
+        int py = cy + (int)(dist * 0.85f * sin(ang));
+        display.fillCircle(px, py, 2, SSD1306_WHITE);
+      }
+    }
+
+    // --- STEP 2: Concentric Mandala Ring & Star Peaks (prog: 0.25 to 0.60) ---
+    if (prog > 0.25f) {
+      float p2 = (prog < 0.60f) ? ((prog - 0.25f) / 0.35f) : 1.0f;
+
+      // Inner ring expands
+      int ring1R = (int)(9.0f + 4.0f * p2);
+      display.drawCircle(cx, cy, ring1R, SSD1306_WHITE);
+
+      // 8 Expanding Star Peaks radiating outward
+      int peakLen = (int)(13.0f + 8.0f * p2); // Extends to 21px
+      for (int i = 0; i < 8; i++) {
+        float ang = i * 0.7854f + 0.3927f; // Offset by 22.5 deg
+        int kx = cx + (int)(peakLen * cos(ang));
+        int ky = cy + (int)(peakLen * 0.85f * sin(ang));
+
+        // Draw radial peak line
+        int inX = cx + (int)(ring1R * cos(ang));
+        int inY = cy + (int)(ring1R * 0.85f * sin(ang));
+        display.drawLine(inX, inY, kx, ky, SSD1306_WHITE);
+        display.fillCircle(kx, ky, 1, SSD1306_WHITE);
+      }
+    }
+
+    // --- STEP 3: Connecting Geometric Star Web & Outer Ring (prog: 0.55 to 0.85) ---
+    if (prog > 0.55f) {
+      float p3 = (prog < 0.85f) ? ((prog - 0.55f) / 0.30f) : 1.0f;
+
+      // Connect adjacent star points to form complete Kolam Star
+      int numLines = (int)(p3 * 8.5f);
+      for (int i = 0; i < 8; i++) {
+        if (i < numLines) {
+          float ang1 = i * 0.7854f + 0.3927f;
+          float ang2 = (i + 1) * 0.7854f + 0.3927f;
+          int xA = cx + (int)(21 * cos(ang1));
+          int yA = cy + (int)(21 * 0.85f * sin(ang1));
+          int xB = cx + (int)(21 * cos(ang2));
+          int yB = cy + (int)(21 * 0.85f * sin(ang2));
+          display.drawLine(xA, yA, xB, yB, SSD1306_WHITE);
+        }
+      }
+
+      // Outer circular boundary ring sweeping around
+      int sweepAngle = (int)(p3 * 360.0f);
+      for (int deg = 0; deg < sweepAngle; deg += 6) {
+        float rad = deg * 0.01745f;
+        int rx = cx + (int)(25 * cos(rad));
+        int ry = cy + (int)(25 * 0.85f * sin(rad));
+        display.drawPixel(rx, ry, SSD1306_WHITE);
+      }
+    }
+
+    // --- STEP 4: 16 Auspicious Pearl Dots & Corner Diyas (prog: 0.80 to 1.0) ---
+    if (prog > 0.80f) {
+      float p4 = (prog - 0.80f) / 0.20f;
+      int numDots = (int)(p4 * 16.5f);
+
+      for (int i = 0; i < 16; i++) {
+        if (i < numDots) {
+          float ang = i * 0.3927f;
+          int dx = cx + (int)(29 * cos(ang));
+          int dy = cy + (int)(29 * 0.85f * sin(ang));
+          if (dx >= 0 && dx < 128 && dy >= 0 && dy < 64) {
+            display.drawPixel(dx, dy, SSD1306_WHITE);
+          }
+        }
+      }
+
+      // Corner festive lights
+      if (p4 > 0.5f) {
+        display.drawCircle(10, 10, 2, SSD1306_WHITE);
+        display.drawCircle(118, 10, 2, SSD1306_WHITE);
+        display.drawCircle(10, 54, 2, SSD1306_WHITE);
+        display.drawCircle(118, 54, 2, SSD1306_WHITE);
+      }
+    }
 
   } else {
-    // Phase 5: Full celebration scene - diya + text + sparkles + stars
-    // Small diya at bottom-left
-    display.fillRoundRect(4, 50, 14, 5, 2, SSD1306_WHITE);
-    display.fillRect(2, 49, 18, 2, SSD1306_WHITE);
-    display.drawFastVLine(10, 43, 6, SSD1306_WHITE);
-    int fl2 = frame % 4;
-    display.fillCircle(10 + (fl2 == 1 ? -1 : 0), 40, 2, SSD1306_WHITE);
-    display.drawPixel(10, 37, SSD1306_WHITE);
+    // ========================================================
+    // SECTION 4: GRAND COMPLETED RANGOLI WITH GLOWING CENTER DIYA (9000 to 11000ms)
+    // Full Rangoli is complete, and the realistic Diya glows at the center!
+    // ========================================================
+    const int cx = 64, cy = 32;
 
-    // Small diya at bottom-right
-    display.fillRoundRect(110, 50, 14, 5, 2, SSD1306_WHITE);
-    display.fillRect(108, 49, 18, 2, SSD1306_WHITE);
-    display.drawFastVLine(116, 43, 6, SSD1306_WHITE);
-    int fl3 = (frame + 2) % 4;
-    display.fillCircle(116 + (fl3 == 2 ? 1 : 0), 40, 2, SSD1306_WHITE);
-    display.drawPixel(116, 37, SSD1306_WHITE);
+    // Full 8-Point Sacred Mandala Pattern
+    display.drawCircle(cx, cy, 14, SSD1306_WHITE);
+    display.drawCircle(cx, cy, 25, SSD1306_WHITE);
 
-    // "HAPPY DIWALI" text centered
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    display.setCursor(16, 4);
-    display.print("~ HAPPY DIWALI ~");
-    display.setTextSize(1);
-    display.setCursor(12, 18);
-    display.print("SHUBH DEEPAWALI");
+    // 8 Petals
+    for (int i = 0; i < 8; i++) {
+      float ang = i * 0.7854f;
+      int px = cx + (int)(18 * cos(ang));
+      int py = cy + (int)(18 * 0.85f * sin(ang));
+      display.fillCircle(px, py, 2, SSD1306_WHITE);
 
-    // Stars raining down
-    for (int i = 0; i < 15; i++) {
-      int sx = (i * 9 + frame * 3) % 128;
-      int sy = (i * 7 + frame * 2) % 40 + 24;
-      display.drawPixel(sx, sy, SSD1306_WHITE);
-      display.drawPixel(sx + 1, sy, SSD1306_WHITE);
-      display.drawPixel(sx, sy + 1, SSD1306_WHITE);
+      // Star peak lines
+      float a1 = i * 0.7854f + 0.3927f;
+      float a2 = (i + 1) * 0.7854f + 0.3927f;
+      int xA = cx + (int)(21 * cos(a1));
+      int yA = cy + (int)(21 * 0.85f * sin(a1));
+      int xB = cx + (int)(21 * cos(a2));
+      int yB = cy + (int)(21 * 0.85f * sin(a2));
+      display.drawLine(xA, yA, xB, yB, SSD1306_WHITE);
     }
 
-    // Sparkle dots everywhere
-    for (int i = 0; i < 10; i++) {
-      int px = (i * 13 + frame * 5) % 128;
-      int py = (i * 11 + frame * 3) % 30 + 28;
-      if ((frame + i) % 3 < 2)
-        display.drawPixel(px, py, SSD1306_WHITE);
+    // 16 Outer Sacred Pearls
+    for (int i = 0; i < 16; i++) {
+      float ang = i * 0.3927f;
+      int dx = cx + (int)(29 * cos(ang));
+      int dy = cy + (int)(29 * 0.85f * sin(ang));
+      if (dx >= 0 && dx < 128 && dy >= 0 && dy < 64) {
+        display.drawPixel(dx, dy, SSD1306_WHITE);
+      }
+    }
+
+    // Glowing Diya at Center of Rangoli
+    display.fillRoundRect(cx - 8, cy + 1, 16, 5, 2, SSD1306_WHITE); // Clay bowl
+    display.fillRoundRect(cx - 6, cy + 2, 12, 2, 1, SSD1306_BLACK); // Oil pool
+    display.drawFastVLine(cx, cy - 3, 4, SSD1306_WHITE);            // Wick
+
+    // Flickering slow flame
+    float sway = 1.8f * sin(millis() * 0.005f);
+    int flameH = 9 + (int)(2.0f * sin(millis() * 0.007f));
+    display.fillTriangle(cx + (int)sway, cy - 3 - flameH, cx - 3, cy - 3, cx + 3, cy - 3, SSD1306_WHITE);
+    display.drawPixel(cx + (int)sway, cy - 4 - flameH, SSD1306_WHITE);
+
+    // Corner festive diya lamps
+    for (int c = 0; c < 4; c++) {
+      int cornerX = (c % 2 == 0) ? 12 : 116;
+      int cornerY = (c < 2) ? 12 : 52;
+      display.fillRoundRect(cornerX - 4, cornerY, 8, 3, 1, SSD1306_WHITE);
+      display.drawPixel(cornerX, cornerY - 2, SSD1306_WHITE);
+      if ((frame + c) % 2 == 0) display.drawPixel(cornerX, cornerY - 3, SSD1306_WHITE);
+    }
+
+    // Celestial celebration sparkles
+    for (int s = 0; s < 8; s++) {
+      int sx = 8 + (s * 17 + frame * 3) % 112;
+      int sy = 6 + (s * 13 + frame * 2) % 52;
+      if ((sx < cx - 32 || sx > cx + 32) && ((frame + s) % 3 < 2)) {
+        display.drawPixel(sx, sy, SSD1306_WHITE);
+      }
     }
   }
 }
 
 // ==========================================
-// LORD RAM ANIMATION: Cinematic Slow-Motion Archery Scene
-// Ram Ji stands on LEFT, animates drawing Kodanda Bow, & shoots Arrow in SLOW MOTION across the sky!
+// LORD RAM ANIMATION: Cinematic Slow-Motion Archery with Aerial Firework Finale
+// Ram Ji on LEFT draws Kodanda Bow -> Arrow glides in SLOW MOTION -> Explodes into Glorious Fireworks!
 // ==========================================
 void drawRamFace(int frame) {
   display.clearDisplay();
 
-  // Smooth 25 FPS time-base using millis (6.4 second complete loop)
-  unsigned long t = millis() % 6400; // 0 to 6399 ms
+  // Smooth 25 FPS time-base using millis (6.8 second complete loop)
+  unsigned long t = millis() % 6800; // 0 to 6799 ms
 
   // Ram Ji Position on LEFT
   const int bx = 14; // Base X
   const int by = 5;  // Base Y
 
-  // Determine Animation Stage
-  // Stage 1 (0 to 1200ms): Stance & Nock Arrow
-  // Stage 2 (1200 to 2400ms): Draw Bowstring & Flex Bow
-  // Stage 3 (2400 to 3200ms): Divine Astra Charge (Full Draw)
-  // Stage 4 (3200 to 5600ms): Release & Slow-Motion Arrow Flight Across Sky (2.4s)
-  // Stage 5 (5600 to 6400ms): Target Impact Flash & Victory
+  // Stages:
+  // Stage 1 (0 to 1100ms): Stance & Nock Arrow
+  // Stage 2 (1100 to 2200ms): Draw Bowstring & Flex Bow
+  // Stage 3 (2200 to 2900ms): Divine Astra Charge at Arrowhead
+  // Stage 4 (2900 to 5000ms): Release & Slow-Motion Arrow Flight Across Sky (2.1s)
+  // Stage 5 (5000 to 6800ms): Breathtaking Multi-Phase Firework Spectacle (1.8s)
   int stage = 1;
-  if (t < 1200) stage = 1;
-  else if (t < 2400) stage = 2;
-  else if (t < 3200) stage = 3;
-  else if (t < 5600) stage = 4;
+  if (t < 1100) stage = 1;
+  else if (t < 2200) stage = 2;
+  else if (t < 2900) stage = 3;
+  else if (t < 5000) stage = 4;
   else stage = 5;
 
   // Compute Bowstring Pull Position (nockX)
@@ -1784,52 +1850,53 @@ void drawRamFace(int frame) {
   if (stage == 1) {
     nockX = 26;
   } else if (stage == 2) {
-    float p = (t - 1200) / 1200.0f; // 0.0 to 1.0
-    float ease = p * p * (3.0f - 2.0f * p); // Smooth ease in-out
-    nockX = (int)(26.0f - 12.0f * ease);    // Pulled back from 26 to 14
+    float p = (t - 1100) / 1100.0f; // 0.0 to 1.0
+    float ease = p * p * (3.0f - 2.0f * p);
+    nockX = (int)(26.0f - 12.0f * ease); // Pulled back from 26 to 14
   } else if (stage == 3) {
     nockX = 14; // Full draw hold
   } else {
-    nockX = 26; // Released forward
+    nockX = 26; // Released
   }
 
   // ----------------------------------------------------
-  // 1. ENVIRONMENT: Ground, Floating Clouds & Twinkling Stars
+  // 1. ENVIRONMENT: Ground, Drifting Clouds & Twinkling Stars
   // ----------------------------------------------------
   // Ground line
   display.drawFastHLine(0, 54, 128, SSD1306_WHITE);
-  // Grass tufts on ground
+  // Grass tufts
   display.drawPixel(4, 53, SSD1306_WHITE);
   display.drawPixel(28, 53, SSD1306_WHITE);
-  display.drawPixel(62, 53, SSD1306_WHITE);
-  display.drawPixel(95, 53, SSD1306_WHITE);
+  display.drawPixel(58, 53, SSD1306_WHITE);
+  display.drawPixel(92, 53, SSD1306_WHITE);
   display.drawPixel(122, 53, SSD1306_WHITE);
 
-  // Soft drifting clouds in the upper sky (adds cinematic slow-mo depth)
-  int cloud1X = (int)((t / 80) % 160) - 20;
+  // Soft drifting clouds in the sky
+  int cloud1X = (int)((t / 90) % 160) - 20;
   if (cloud1X >= -20 && cloud1X < 120) {
-    display.drawFastHLine(cloud1X, 8, 16, SSD1306_WHITE);
-    display.drawFastHLine(cloud1X + 4, 7, 8, SSD1306_WHITE);
+    display.drawFastHLine(cloud1X, 6, 14, SSD1306_WHITE);
+    display.drawFastHLine(cloud1X + 3, 5, 8, SSD1306_WHITE);
   }
-  int cloud2X = (int)(((t + 3200) / 100) % 170) - 20;
+  int cloud2X = (int)(((t + 3400) / 110) % 170) - 20;
   if (cloud2X >= -20 && cloud2X < 120) {
-    display.drawFastHLine(cloud2X, 14, 14, SSD1306_WHITE);
-    display.drawFastHLine(cloud2X + 3, 13, 8, SSD1306_WHITE);
+    display.drawFastHLine(cloud2X, 12, 12, SSD1306_WHITE);
+    display.drawFastHLine(cloud2X + 2, 11, 7, SSD1306_WHITE);
   }
 
-  // Subtle celestial stars
-  display.drawPixel(50, 4, SSD1306_WHITE);
-  display.drawPixel(75, 11, SSD1306_WHITE);
-  display.drawPixel(105, 5, SSD1306_WHITE);
+  // Twinkling celestial stars (sparkle subtly)
+  if ((frame % 3) != 0) display.drawPixel(48, 4, SSD1306_WHITE);
+  if ((frame % 4) != 1) display.drawPixel(78, 9, SSD1306_WHITE);
+  if ((frame % 3) != 2) display.drawPixel(108, 4, SSD1306_WHITE);
+  if ((frame % 5) != 0) display.drawPixel(124, 12, SSD1306_WHITE);
 
   // ----------------------------------------------------
   // 2. BHAGWAN RAM SILHOUETTE (Standing proudly on LEFT)
   // ----------------------------------------------------
   // Divine Halo (Prabhamandal) around head
-  int haloR = (stage == 3) ? 10 : 9; // Expands when divine power charges
+  int haloR = (stage == 3) ? 10 : 9;
   display.drawCircle(bx + 4, by + 12, haloR, SSD1306_WHITE);
   if (stage == 3 && (frame % 2 == 0)) {
-    // Radiating aura rays in Stage 3
+    // Energy charge rays from halo in Stage 3
     display.drawPixel(bx + 4, by + 12 - 12, SSD1306_WHITE);
     display.drawPixel(bx + 4 - 12, by + 12, SSD1306_WHITE);
     display.drawPixel(bx + 4 + 12, by + 12, SSD1306_WHITE);
@@ -1886,7 +1953,7 @@ void drawRamFace(int frame) {
     display.drawLine(elbowX, elbowY, nockX, 32, SSD1306_WHITE);        // Forearm to nock
     display.fillCircle(nockX, 32, 2, SSD1306_WHITE);                   // Hand pulling string
   } else {
-    // Released follow-through pose (hand opened after release)
+    // Released follow-through pose (hand opened gracefully)
     display.drawLine(bx + 2, by + 22, bx + 10, by + 28, SSD1306_WHITE);
     display.drawPixel(bx + 11, by + 29, SSD1306_WHITE);
   }
@@ -1933,13 +2000,13 @@ void drawRamFace(int frame) {
   // 4. BOWSTRING (Pratyancha) ANIMATION
   // ----------------------------------------------------
   if (stage == 2 || stage == 3) {
-    // String is PULLED BACK into dynamic '>' angle by right hand!
+    // String is PULLED BACK into dynamic sharp '>' angle by right hand!
     display.drawLine(tipX, bowTopY, nockX, 32, SSD1306_WHITE);
     display.drawLine(tipX, bowBotY, nockX, 32, SSD1306_WHITE);
   } else {
     // String is straight taut at resting position
     // Subtle recoil vibration in the first 160ms of release
-    int recoil = (stage == 4 && (t - 3200 < 160)) ? (((frame % 2 == 0) ? 1 : -1)) : 0;
+    int recoil = (stage == 4 && (t - 2900 < 160)) ? (((frame % 2 == 0) ? 1 : -1)) : 0;
     display.drawLine(tipX + recoil, bowTopY, tipX + recoil, bowBotY, SSD1306_WHITE);
   }
 
@@ -1951,12 +2018,6 @@ void drawRamFace(int frame) {
     display.drawFastHLine(nockX, 32, 22, SSD1306_WHITE);
     display.fillTriangle(nockX + 26, 32, nockX + 21, 29, nockX + 21, 35, SSD1306_WHITE);
 
-    // Text
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    display.setCursor(54, 4);
-    display.print("JAI SHRI RAM");
-
   } else if (stage == 2) {
     // Arrow being drawn back with string
     display.drawFastHLine(nockX, 32, 24, SSD1306_WHITE);
@@ -1966,12 +2027,6 @@ void drawRamFace(int frame) {
     // Tail fletchings at nock
     display.drawLine(nockX, 32, nockX - 3, 29, SSD1306_WHITE);
     display.drawLine(nockX, 33, nockX - 3, 36, SSD1306_WHITE);
-
-    // Text
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    display.setCursor(48, 4);
-    display.print("PRATYANCHA...");
 
   } else if (stage == 3) {
     // FULL DRAW: Arrow charged with Divine Radiant Aura!
@@ -1991,24 +2046,18 @@ void drawRamFace(int frame) {
     display.drawPixel(tipArrowX + 6, 32 - 5 - pulse, SSD1306_WHITE);
     display.drawPixel(tipArrowX + 6, 32 + 5 + pulse, SSD1306_WHITE);
 
-    // Text
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    display.setCursor(44, 4);
-    display.print("~ DIVYA BAAN ~");
-
   } else if (stage == 4) {
     // ========================================================
-    // STAGE 4: SLOW MOTION FLIGHT ACROSS THE SKY (2.4 SECONDS)
+    // STAGE 4: SLOW MOTION FLIGHT ACROSS THE SKY (2.1 SECONDS)
     // ========================================================
-    unsigned long flightTime = t - 3200; // 0 to 2399 ms
-    float progress = (float)flightTime / 2400.0f; // 0.0 to 1.0
+    unsigned long flightTime = t - 2900; // 0 to 2099 ms
+    float progress = (float)flightTime / 2100.0f; // 0.0 to 1.0
 
-    // Smooth horizontal position across open sky (x: 36 -> 122)
-    int arrowHeadX = 36 + (int)(progress * 86.0f);
+    // Smooth horizontal position across open sky (x: 36 -> 102)
+    int arrowHeadX = 36 + (int)(progress * 66.0f);
 
-    // Aerodynamic trajectory: gentle subtle arc in flight
-    int arrowY = 32 - (int)(6.0f * sin(progress * 3.14159f));
+    // Aerodynamic trajectory: gentle subtle arc in flight, rising towards explosion point
+    int arrowY = 32 - (int)(10.0f * sin(progress * 1.57f)); // Rises smoothly from 32 to 22
 
     // Double-thick 20px straight golden shaft
     display.drawFastHLine(arrowHeadX - 20, arrowY, 20, SSD1306_WHITE);
@@ -2037,50 +2086,114 @@ void drawRamFace(int frame) {
       }
     }
 
-    // Top Slow-Motion indicator & text
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    display.setCursor(46, 4);
-    display.print("JAI SHRI RAM");
-
   } else {
     // ========================================================
-    // STAGE 5: TARGET IMPACT FLASH & CELESTIAL VICTORY (800ms)
+    // STAGE 5: SPECTACULAR MULTI-PHASE FIREWORK FINALE (1.8s)
+    // No text! Pure, dazzling pyrotechnic fireworks in the sky!
     // ========================================================
-    unsigned long impTime = t - 5600; // 0 to 799 ms
-    int impactX = 120, impactY = 32;
+    unsigned long fwTime = t - 5000; // 0 to 1799 ms
+    const int cx = 100, cy = 22;     // Main firework explosion center
 
-    // Expanding concentric shockwave rings
-    int r1 = (int)((impTime / 800.0f) * 22.0f);
-    display.drawCircle(impactX, impactY, r1, SSD1306_WHITE);
-    if (r1 > 4) display.drawCircle(impactX, impactY, r1 - 4, SSD1306_WHITE);
+    if (fwTime < 250) {
+      // 1. Initial Blast Flash & Expanding Shockwave
+      int flashR = (int)((fwTime / 250.0f) * 14.0f);
+      display.fillCircle(cx, cy, 3, SSD1306_WHITE);
+      display.drawCircle(cx, cy, flashR, SSD1306_WHITE);
+      if (flashR > 4) display.drawCircle(cx, cy, flashR - 4, SSD1306_WHITE);
 
-    // Radiant Starburst explosion rays
-    for (int a = 0; a < 8; a++) {
-      float ang = a * 0.785f;
-      int rx1 = impactX + (int)(5 * cos(ang));
-      int ry1 = impactY + (int)(5 * sin(ang));
-      int rx2 = impactX + (int)((r1 + 6) * cos(ang));
-      int ry2 = impactY + (int)((r1 + 6) * sin(ang));
-      if (rx2 >= 0 && rx2 < 128 && ry2 >= 0 && ry2 < 64) {
-        display.drawLine(rx1, ry1, rx2, ry2, SSD1306_WHITE);
+      // Flash spikes
+      for (int a = 0; a < 8; a++) {
+        float ang = a * 0.785f;
+        int sx = cx + (int)((flashR + 4) * cos(ang));
+        int sy = cy + (int)((flashR + 4) * sin(ang));
+        display.drawLine(cx, cy, sx, sy, SSD1306_WHITE);
       }
-    }
 
-    // Victory Banner
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextSize(1);
-    display.setCursor(40, 18);
-    display.print("~ VICTORY ~");
-    display.setTextSize(1);
-    display.setCursor(34, 34);
-    display.print("JAI SHRI RAM");
+    } else if (fwTime < 1200) {
+      // 2. Full Chrysanthemum Starburst Explosion (16-Point Radial Rays)
+      float prog = (fwTime - 250) / 950.0f; // 0.0 to 1.0
+      float ease = prog * (2.0f - prog);    // Decelerating expansion
+      float maxDist = 28.0f * ease;
+      float gravity = 6.0f * prog * prog;   // Gentle gravity droop
 
-    // Celestial sparkles raining
-    for (int i = 0; i < 8; i++) {
-      int sx = 30 + (i * 12 + frame * 4) % 80;
-      int sy = 6 + (i * 7 + frame * 3) % 46;
-      display.drawPixel(sx, sy, SSD1306_WHITE);
+      // 16 radial streaming firework arms
+      for (int i = 0; i < 16; i++) {
+        float ang = i * 0.3927f; // 2 * PI / 16
+        float vx = cos(ang);
+        float vy = sin(ang);
+
+        // Organic speed variation across arms
+        float spd = 0.85f + 0.3f * ((i * 7) % 5) / 4.0f;
+        float d = maxDist * spd;
+
+        int px = cx + (int)(d * vx);
+        int py = cy + (int)(d * 0.82f * vy + gravity);
+
+        if (px >= 0 && px < 128 && py >= 0 && py < 54) {
+          // Leading bright ember (2x2)
+          display.fillRect(px, py, 2, 2, SSD1306_WHITE);
+
+          // Sparkling tail sparks behind ember
+          if (d > 7.0f) {
+            int tx1 = cx + (int)((d - 5.0f) * vx);
+            int ty1 = cy + (int)((d - 5.0f) * 0.82f * vy + gravity * 0.75f);
+            if (tx1 >= 0 && tx1 < 128 && ty1 >= 0 && ty1 < 54)
+              display.drawPixel(tx1, ty1, SSD1306_WHITE);
+          }
+          if (d > 14.0f && ((frame + i) % 2 == 0)) {
+            int tx2 = cx + (int)((d - 11.0f) * vx);
+            int ty2 = cy + (int)((d - 11.0f) * 0.82f * vy + gravity * 0.5f);
+            if (tx2 >= 0 && tx2 < 128 && ty2 >= 0 && ty2 < 54)
+              display.drawPixel(tx2, ty2, SSD1306_WHITE);
+          }
+        }
+      }
+
+      // Secondary Satellite Micro-Bursts popping around the main shell
+      if (fwTime >= 500) {
+        // Micro-burst 1 at top left (76, 14)
+        int mb1R = (int)(((fwTime - 500) / 700.0f) * 8.0f);
+        display.drawCircle(76, 14, mb1R, SSD1306_WHITE);
+        display.drawPixel(76 + mb1R + 1, 14, SSD1306_WHITE);
+        display.drawPixel(76 - mb1R - 1, 14, SSD1306_WHITE);
+        display.drawPixel(76, 14 - mb1R - 1, SSD1306_WHITE);
+        display.drawPixel(76, 14 + mb1R + 1, SSD1306_WHITE);
+      }
+      if (fwTime >= 700) {
+        // Micro-burst 2 at bottom right (118, 32)
+        int mb2R = (int)(((fwTime - 700) / 500.0f) * 7.0f);
+        display.drawCircle(118, 32, mb2R, SSD1306_WHITE);
+        display.drawPixel(118 + mb2R, 32, SSD1306_WHITE);
+        display.drawPixel(118 - mb2R, 32, SSD1306_WHITE);
+        display.drawPixel(118, 32 - mb2R, SSD1306_WHITE);
+        display.drawPixel(118, 32 + mb2R, SSD1306_WHITE);
+      }
+
+    } else {
+      // 3. Falling Golden Willow (Kamuro Glittering Rain Effect)
+      // Embers slowly drift downward like waterfall of twinkling sparks
+      unsigned long fallTime = fwTime - 1200; // 0 to 599 ms
+      float fallProg = fallTime / 600.0f;
+
+      for (int i = 0; i < 22; i++) {
+        // Spread across firework area
+        int sx = cx - 24 + ((i * 11) % 52) + (int)(2.0f * sin(i * 1.3f + frame * 0.4f));
+        int sy = cy + 2 + (int)(fallProg * (24.0f + ((i * 5) % 18)));
+
+        if (sx >= 0 && sx < 128 && sy >= 0 && sy < 54) {
+          // Twinkling sparkle effect (flickers naturally)
+          if ((frame + i) % 3 < 2) {
+            display.drawPixel(sx, sy, SSD1306_WHITE);
+            // Little sparkle cross on select embers
+            if ((i % 4 == 0) && (fallTime < 400)) {
+              display.drawPixel(sx - 1, sy, SSD1306_WHITE);
+              display.drawPixel(sx + 1, sy, SSD1306_WHITE);
+              display.drawPixel(sx, sy - 1, SSD1306_WHITE);
+              display.drawPixel(sx, sy + 1, SSD1306_WHITE);
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -2985,14 +3098,14 @@ void loop() {
 
   // Display refresh: 40ms (~25 FPS) for butter-smooth sliding transitions & second ticks,
   // 180ms when stationary face is shown
-  int animInterval = (slideshowActive || currentFace == "time" || currentFace == "clock" || currentFace == "ram" || currentFace == "fireworks") ? 40 : 180;
+  int animInterval = (slideshowActive || currentFace == "time" || currentFace == "clock" || currentFace == "ram" || currentFace == "fireworks" || currentFace == "diwali") ? 40 : 180;
   if (now - lastAnimUpdate >= animInterval) {
     lastAnimUpdate = now;
     if (oledConnected) {
       renderCurrentFace();
 
       // Top-right corner indicators (shown on emoji faces, suppressed on clean clock/date):
-      if (wifiEnabled && currentFace != "time" && currentFace != "date" && currentFace != "clock" && currentFace != "ram") {
+      if (wifiEnabled && currentFace != "time" && currentFace != "date" && currentFace != "clock" && currentFace != "ram" && currentFace != "diwali") {
         if (WiFi.softAPgetStationNum() > 0) {
           display.fillCircle(124, 4, 2, SSD1306_WHITE);
         } else if ((animFrame % 4) < 2) {
