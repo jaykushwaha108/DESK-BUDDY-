@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🤖 Lumina C3 — Animated Robot Companion, Smart Clock & Festive OLED Display
 
 <div align="center">
@@ -208,3 +209,6 @@ This project is open-source under the [MIT License](LICENSE). Feel free to use, 
 Crafted with ❤️ for the maker & embedded community.
 </div>
 
+=======
+# DESK-BUDDY-
+>>>>>>> 34a57c3a71625e260bad496868ab7a5e704e75f2
