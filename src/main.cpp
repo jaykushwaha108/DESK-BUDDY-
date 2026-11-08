@@ -865,251 +865,508 @@ void drawHeart(int cx, int cy, int size) {
                        cy + size / 2, SSD1306_WHITE);
 }
 
-// 1. Normal / Idle with automatic natural blink
+// ==========================================
+// 12 HIGH-EXPRESSION ANIMATED ROBOT & EMOJI FACES (25 FPS)
+// Real expressive eyes, gaze tracking, micro-animations, eyelids, cheeks & props
+// ==========================================
+
+// 1. Idle Face (Alive pet: breathing bob, gaze tracking, smooth natural blinking, blushing cheeks, smile)
 void drawIdleFace(int frame) {
   display.clearDisplay();
-  bool isBlinking = (frame % 30 >= 27); // Blink every ~3 seconds for 3 frames
+
+  int cycle = frame % 100;
+  int bob = ((cycle % 30) < 15) ? 0 : 1; // Subtle natural breathing bob
+
+  // Gaze tracking: glance right, glance left, or look forward
+  int lookX = 0;
+  if (cycle >= 50 && cycle < 75) {
+    lookX = 6;  // Glance right
+  } else if (cycle >= 15 && cycle < 35) {
+    lookX = -6; // Glance left
+  }
+
+  // Smooth natural blinking + occasional playful double-blink
+  bool isBlinking = (cycle >= 42 && cycle <= 46) || (cycle >= 88 && cycle <= 90);
+
+  // Eyebrows (subtly tilted with gaze)
+  display.fillRoundRect(22, 10 + bob - (lookX < 0 ? 1 : 0), 32, 4, 2, SSD1306_WHITE);
+  display.fillRoundRect(74, 10 + bob - (lookX > 0 ? 1 : 0), 32, 4, 2, SSD1306_WHITE);
 
   if (isBlinking) {
-    // Eyelid slit
-    display.fillRoundRect(24, 28, 28, 6, 3, SSD1306_WHITE);
-    display.fillRoundRect(76, 28, 28, 6, 3, SSD1306_WHITE);
+    // Eyelid slit during blink with eyelashes
+    display.fillRoundRect(20, 29 + bob, 36, 6, 3, SSD1306_WHITE);
+    display.fillRoundRect(72, 29 + bob, 36, 6, 3, SSD1306_WHITE);
   } else {
-    // Cute Big Eyes
-    display.fillRoundRect(24, 14, 28, 34, 8, SSD1306_WHITE);
-    display.fillRoundRect(76, 14, 28, 34, 8, SSD1306_WHITE);
+    // Left Eye
+    display.fillRoundRect(20, 16 + bob, 36, 32, 10, SSD1306_WHITE);
+    // Right Eye
+    display.fillRoundRect(72, 16 + bob, 36, 32, 10, SSD1306_WHITE);
 
-    // Eye glint (white pupils/highlights)
-    display.fillCircle(30, 20, 3, SSD1306_BLACK);
-    display.fillCircle(82, 20, 3, SSD1306_BLACK);
+    // Inner pupils tracking gaze
+    display.fillCircle(38 + lookX, 32 + bob, 7, SSD1306_BLACK);
+    display.fillCircle(90 + lookX, 32 + bob, 7, SSD1306_BLACK);
+
+    // Dual Catchlight Twinkles (soulful OLED eyes)
+    display.fillCircle(35 + lookX, 28 + bob, 2, SSD1306_WHITE);
+    display.fillCircle(87 + lookX, 28 + bob, 2, SSD1306_WHITE);
+    display.drawPixel(41 + lookX, 35 + bob, SSD1306_WHITE);
+    display.drawPixel(93 + lookX, 35 + bob, SSD1306_WHITE);
   }
 
-  // Small cute mouth
-  display.drawFastHLine(60, 54, 8, SSD1306_WHITE);
+  // Cute blushing cheeks
+  display.fillCircle(14, 44 + bob, 3, SSD1306_WHITE);
+  display.fillCircle(114, 44 + bob, 3, SSD1306_WHITE);
+
+  // Soft contented smiling mouth
+  display.drawCircle(64, 47 + bob, 7, SSD1306_WHITE);
+  display.fillRect(54, 40 + bob, 20, 9, SSD1306_BLACK);
 }
 
-// 2. Happy Face (Anime style ^ ^ smile)
+// 2. Happy Face (Joyful bounce, smiling arch eyes, pulsing blush, open laugh with tongue & sparkles)
 void drawHappyFace(int frame) {
   display.clearDisplay();
-  int bounce = (frame % 4 < 2) ? 0 : 2;
 
-  // Squinting smiling arch eyes
-  for (int t = 0; t < 5; t++) {
-    // Left eye arch
-    display.drawCircle(38, 34 + bounce + t, 16, SSD1306_WHITE);
-    // Right eye arch
-    display.drawCircle(90, 34 + bounce + t, 16, SSD1306_WHITE);
+  int bounce = (frame % 8 < 4) ? 0 : 2; // Cheerful bouncing motion
+
+  // Eyebrows raised high in joy
+  display.fillRoundRect(22, 8 + bounce, 32, 3, 1, SSD1306_WHITE);
+  display.fillRoundRect(74, 8 + bounce, 32, 3, 1, SSD1306_WHITE);
+
+  // Smiling joy arch eyes (thick expressive double curves)
+  for (int t = 0; t < 3; t++) {
+    display.drawCircle(38, 36 + bounce, 16 + t, SSD1306_WHITE);
+    display.drawCircle(90, 36 + bounce, 16 + t, SSD1306_WHITE);
   }
-  // Clear lower half of the circles so they remain curved arches
-  display.fillRect(15, 34 + bounce, 100, 20, SSD1306_BLACK);
+  // Clear lower half so they remain graceful upward smiling arches
+  display.fillRect(16, 36 + bounce, 96, 24, SSD1306_BLACK);
 
-  // Big joyful open smile
-  display.fillCircle(64, 46 + bounce, 10, SSD1306_WHITE);
-  display.fillRect(52, 42 + bounce, 24, 6, SSD1306_BLACK);
+  // Pulsing blushing cheek pads
+  int bR = (frame % 6 < 3) ? 4 : 5;
+  display.fillCircle(18, 42 + bounce, bR, SSD1306_WHITE);
+  display.fillCircle(110, 42 + bounce, bR, SSD1306_WHITE);
 
-  // Cute blush marks
-  display.drawFastHLine(18, 40, 6, SSD1306_WHITE);
-  display.drawFastHLine(104, 40, 6, SSD1306_WHITE);
+  // Big joyful open smile with bouncing tongue
+  display.fillRoundRect(50, 43 + bounce, 28, 15, 7, SSD1306_WHITE);
+  display.fillRoundRect(52, 45 + bounce, 24, 11, 5, SSD1306_BLACK);
+  display.fillCircle(64, 53 + bounce, 5, SSD1306_WHITE); // Cute tongue
+
+  // Twinkling joy sparkles near eyes
+  if ((frame % 6) < 4) {
+    int sx1 = 12, sy1 = 18 + bounce;
+    display.drawLine(sx1 - 3, sy1, sx1 + 3, sy1, SSD1306_WHITE);
+    display.drawLine(sx1, sy1 - 3, sx1, sy1 + 3, SSD1306_WHITE);
+
+    int sx2 = 116, sy2 = 18 + bounce;
+    display.drawLine(sx2 - 3, sy2, sx2 + 3, sy2, SSD1306_WHITE);
+    display.drawLine(sx2, sy2 - 3, sx2, sy2 + 3, SSD1306_WHITE);
+  }
 }
 
-// 3. Love / Heart Eyes (Pulsing animation)
+// 3. Love Face (Heart eyes with real heartbeat pulse, floating hearts, shy blush & sweet smile)
 void drawLoveFace(int frame) {
   display.clearDisplay();
-  int pulse = (frame % 6 < 3) ? 22 : 26; // Heart beats
 
-  drawHeart(38, 28, pulse);
-  drawHeart(90, 28, pulse);
+  // Heartbeat pulse rhythm (thump-thump)
+  int pulse = (frame % 10 < 3) ? 28 : ((frame % 10 < 6) ? 24 : 26);
 
-  // Cute open smile
-  display.drawCircle(64, 48, 8, SSD1306_WHITE);
-  display.fillRect(54, 40, 20, 8, SSD1306_BLACK);
+  // Main beating heart eyes
+  drawHeart(38, 26, pulse);
+  drawHeart(90, 26, pulse);
+
+  // Floating mini-hearts drifting upwards in a gentle wave
+  int fY1 = 52 - ((frame * 2) % 56);
+  int fX1 = 12 + (int)(sin(frame * 0.25) * 4);
+  if (fY1 >= 0 && fY1 < 56) drawHeart(fX1, fY1, 8);
+
+  int fY2 = 52 - (((frame + 14) * 2) % 56);
+  int fX2 = 116 + (int)(sin((frame + 14) * 0.25) * 4);
+  if (fY2 >= 0 && fY2 < 56) drawHeart(fX2, fY2, 8);
+
+  // Shy diagonal blush marks (// and \)
+  display.drawLine(16, 42, 22, 38, SSD1306_WHITE);
+  display.drawLine(20, 44, 26, 40, SSD1306_WHITE);
+  display.drawLine(106, 38, 112, 42, SSD1306_WHITE);
+  display.drawLine(102, 40, 108, 44, SSD1306_WHITE);
+
+  // Sweet smiling open mouth with pink/white tongue
+  display.fillRoundRect(52, 45, 24, 13, 6, SSD1306_WHITE);
+  display.fillCircle(64, 53, 5, SSD1306_BLACK);
 }
 
-// 4. Playful Wink
+// 4. Playful Wink (Left winking with fluttery lashes, right sparkling eye with rotating twinkle, smirk & tongue)
 void drawWinkFace(int frame) {
   display.clearDisplay();
-  // Left Eye: Wide open cute rounded eye
-  display.fillRoundRect(24, 14, 28, 34, 8, SSD1306_WHITE);
-  display.fillCircle(30, 20, 3, SSD1306_BLACK);
 
-  // Right Eye: Winking closed slit with lash
-  display.fillRoundRect(76, 28, 28, 6, 3, SSD1306_WHITE);
-  display.drawLine(104, 28, 108, 24, SSD1306_WHITE);
-  display.drawLine(104, 32, 108, 36, SSD1306_WHITE);
+  // Left Eye: Graceful closed winking smile curve with 3 eyelashes
+  for (int t = 0; t < 3; t++) {
+    display.drawCircle(38, 29, 14 + t, SSD1306_WHITE);
+  }
+  display.fillRect(18, 14, 40, 16, SSD1306_BLACK);
+  // Fluttery eyelashes
+  display.drawLine(23, 31, 18, 27, SSD1306_WHITE);
+  display.drawLine(21, 35, 16, 34, SSD1306_WHITE);
+  display.drawLine(23, 39, 19, 42, SSD1306_WHITE);
 
-  // Smirk Smile
-  display.drawCircle(68, 48, 10, SSD1306_WHITE);
-  display.fillRect(56, 40, 24, 9, SSD1306_BLACK);
+  // Left eyebrow tilted down in a wink
+  display.fillRoundRect(22, 14, 32, 3, 1, SSD1306_WHITE);
+
+  // Right Eye: Wide open, sparkling
+  display.fillRoundRect(72, 16, 36, 32, 10, SSD1306_WHITE);
+  display.fillCircle(90, 32, 7, SSD1306_BLACK);
+
+  // Rotating 4-point twinkle star highlight inside right pupil
+  int starRot = frame % 4;
+  if (starRot < 2) {
+    display.drawLine(86, 32, 94, 32, SSD1306_WHITE);
+    display.drawLine(90, 28, 90, 36, SSD1306_WHITE);
+  } else {
+    display.drawLine(87, 29, 93, 35, SSD1306_WHITE);
+    display.drawLine(87, 35, 93, 29, SSD1306_WHITE);
+  }
+  display.drawPixel(90, 32, SSD1306_WHITE);
+
+  // Right eyebrow raised in expression
+  display.fillRoundRect(74, 10, 32, 3, 1, SSD1306_WHITE);
+
+  // Cheeks: Left cheek has a cute blushing heart, right has a soft dot
+  drawHeart(22, 46, 8);
+  display.fillCircle(112, 42, 3, SSD1306_WHITE);
+
+  // Playful smirk smile with cute tongue sticking out (blep!)
+  display.drawCircle(58, 44, 12, SSD1306_WHITE);
+  display.fillRect(44, 34, 28, 12, SSD1306_BLACK);
+  // Cheeky tongue
+  display.fillRoundRect(66, 47, 8, 8, 3, SSD1306_WHITE);
+  display.drawLine(70, 47, 70, 52, SSD1306_BLACK);
 }
 
-// 5. Cool Sunglasses
+// 5. Cool Face (Dark aviator sunglasses with dynamic sweeping gleam, raised brow, smug smirk & smoke puff)
 void drawCoolFace(int frame) {
   display.clearDisplay();
-  int glintOffset = (frame % 16) * 4;
 
-  // Dark sunglasses frame
-  display.fillRoundRect(20, 16, 38, 24, 4, SSD1306_WHITE);
-  display.fillRoundRect(70, 16, 38, 24, 4, SSD1306_WHITE);
-  // Bridge
-  display.fillRect(58, 22, 12, 5, SSD1306_WHITE);
+  // Dark stylish sunglasses frames
+  display.fillRoundRect(18, 16, 40, 26, 6, SSD1306_WHITE);
+  display.fillRoundRect(70, 16, 40, 26, 6, SSD1306_WHITE);
+  // Center nose bridge & side temple arms
+  display.fillRoundRect(56, 22, 16, 6, 2, SSD1306_WHITE);
+  display.drawLine(18, 20, 6, 24, SSD1306_WHITE);
+  display.drawLine(110, 20, 122, 24, SSD1306_WHITE);
 
-  // Cool white reflection glint moving
-  int gx1 = 22 + (glintOffset % 32);
-  display.drawLine(gx1, 38, gx1 + 6, 18, SSD1306_BLACK);
-  int gx2 = 72 + (glintOffset % 32);
-  display.drawLine(gx2, 38, gx2 + 6, 18, SSD1306_BLACK);
+  // Dynamic white reflection gleam sweeping across both lenses smoothly
+  int gleam = (frame * 3) % 55;
+  if (gleam < 34) {
+    // Left lens reflection
+    display.drawLine(20 + gleam, 40, 26 + gleam, 18, SSD1306_BLACK);
+    display.drawLine(21 + gleam, 40, 27 + gleam, 18, SSD1306_BLACK);
+    // Right lens reflection
+    display.drawLine(72 + gleam, 40, 78 + gleam, 18, SSD1306_BLACK);
+    display.drawLine(73 + gleam, 40, 79 + gleam, 18, SSD1306_BLACK);
+  }
 
-  // Smug smirk mouth
-  display.drawLine(60, 52, 76, 50, SSD1306_WHITE);
-  display.drawLine(76, 50, 78, 46, SSD1306_WHITE);
+  // Raised cool arched eyebrow over the glasses!
+  display.fillRoundRect(22, 10, 32, 3, 1, SSD1306_WHITE);
+
+  // Smug corner smirk mouth
+  display.drawLine(58, 52, 74, 50, SSD1306_WHITE);
+  display.drawLine(74, 50, 78, 46, SSD1306_WHITE);
+
+  // Toothpick stick tilting upwards
+  display.drawLine(72, 50, 84, 56, SSD1306_WHITE);
+
+  // Animated drifting smoke puff
+  int sStep = frame % 16;
+  int sX = 86 + (sStep / 2);
+  int sY = 56 - sStep;
+  if (sY >= 10) {
+    display.drawCircle(sX, sY, 2 + (sStep / 6), SSD1306_WHITE);
+  }
 }
 
-// 6. Sleepy / Zzz
+// 6. Sleepy Face (Drooping closed eye curves, cartoon breathing snot bubble that expands and pops, drifting Zzz)
 void drawSleepyFace(int frame) {
   display.clearDisplay();
 
-  // Sleeping closed droopy eye slits
-  display.fillRoundRect(22, 30, 28, 5, 2, SSD1306_WHITE);
-  display.fillRoundRect(74, 30, 28, 5, 2, SSD1306_WHITE);
+  // Relaxed sleeping curved eye slits (U U)
+  for (int t = 0; t < 3; t++) {
+    display.drawCircle(36, 26, 14 + t, SSD1306_WHITE);
+    display.drawCircle(92, 26, 14 + t, SSD1306_WHITE);
+  }
+  display.fillRect(16, 12, 96, 16, SSD1306_BLACK);
 
-  // Drifting "Zzz"
-  int zStep = frame % 20;
+  // Drooping relaxed eyebrows
+  display.fillRoundRect(20, 20, 32, 2, 1, SSD1306_WHITE);
+  display.fillRoundRect(76, 20, 32, 2, 1, SSD1306_WHITE);
+
+  // Classic cartoon breathing snot bubble: grows and pops!
+  int bCycle = frame % 28;
+  if (bCycle < 24) {
+    int bR = 2 + (bCycle * 7 / 24);
+    display.drawCircle(68 + bR / 2, 45 - bR / 2, bR, SSD1306_WHITE);
+    display.drawPixel(68 + bR / 2 - bR / 3, 45 - bR / 2 - bR / 3, SSD1306_WHITE); // Highlight
+  } else {
+    // Pop sparkle burst!
+    display.drawPixel(73, 40, SSD1306_WHITE);
+    display.drawPixel(77, 37, SSD1306_WHITE);
+    display.drawPixel(75, 45, SSD1306_WHITE);
+  }
+
+  // Drifting "Zzz": Three staggered letters floating in a sine wave
+  int z1 = (frame * 2) % 40;
+  int z2 = (frame * 2 + 14) % 40;
+  int z3 = (frame * 2 + 28) % 40;
+
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(95 + (zStep / 3), 18 - (zStep / 2));
+  display.setCursor(92 + (int)(sin(z1 * 0.25) * 4), 32 - z1);
   display.print("z");
+  display.setCursor(102 + (int)(sin(z2 * 0.25) * 4), 28 - z2);
+  display.print("Z");
   display.setTextSize(2);
-  display.setCursor(105 + (zStep / 4), 10 - zStep);
+  display.setCursor(112 + (int)(sin(z3 * 0.25) * 4), 22 - z3);
   display.print("Z");
 
-  // Tiny relaxed mouth (o)
-  display.drawCircle(62, 48, 3, SSD1306_WHITE);
+  // Tiny relaxed snoozing mouth
+  display.fillCircle(58, 48, 3, SSD1306_WHITE);
+  display.fillCircle(58, 48, 2, SSD1306_BLACK);
 }
 
-// 7. Angry / Gussa
+// 7. Angry Face (Furrowed V-brows, intense piercing eyes, clenched teeth grimace, rage vein & puffing steam)
 void drawAngryFace(int frame) {
   display.clearDisplay();
-  int shake = (frame % 2 == 0) ? 1 : -1;
 
-  // Left Eye: Slanted fiercely downwards to center
-  display.fillRoundRect(24 + shake, 18, 28, 28, 4, SSD1306_WHITE);
-  display.fillTriangle(24 + shake, 18, 52 + shake, 18, 52 + shake, 30,
-                       SSD1306_BLACK);
+  int shake = (frame % 2 == 0) ? 1 : -1; // Furious screen shake vibration
 
-  // Right Eye: Slanted fiercely downwards to center
-  display.fillRoundRect(76 + shake, 18, 28, 28, 4, SSD1306_WHITE);
-  display.fillTriangle(76 + shake, 18, 104 + shake, 18, 76 + shake, 30,
-                       SSD1306_BLACK);
+  // Fierce V-furrowed Eyebrows (thick angled slashes)
+  for (int i = 0; i < 4; i++) {
+    display.drawLine(18 + shake, 10 + i, 56 + shake, 20 + i, SSD1306_WHITE);
+    display.drawLine(110 + shake, 10 + i, 72 + shake, 20 + i, SSD1306_WHITE);
+  }
 
-  // Angry jagged mouth
-  display.drawLine(52, 54, 60, 48, SSD1306_WHITE);
-  display.drawLine(60, 48, 68, 54, SSD1306_WHITE);
-  display.drawLine(68, 54, 76, 48, SSD1306_WHITE);
+  // Intense Piercing Eyes
+  display.fillRoundRect(22 + shake, 20, 32, 22, 6, SSD1306_WHITE);
+  display.fillRoundRect(74 + shake, 20, 32, 22, 6, SSD1306_WHITE);
+  // Cut top-inner slant to match furious furrowed brows
+  display.fillTriangle(38 + shake, 20, 54 + shake, 20, 54 + shake, 28, SSD1306_BLACK);
+  display.fillTriangle(74 + shake, 20, 90 + shake, 20, 74 + shake, 28, SSD1306_BLACK);
+
+  // Black pupils looking furiously forward
+  display.fillCircle(36 + shake, 29, 4, SSD1306_BLACK);
+  display.fillCircle(92 + shake, 29, 4, SSD1306_BLACK);
+
+  // Throbbing Anime Rage Vein on Temple
+  if ((frame % 6) < 4) {
+    int vx = 112 + shake, vy = 8;
+    display.drawLine(vx, vy, vx + 8, vy, SSD1306_WHITE);
+    display.drawLine(vx + 4, vy - 4, vx + 4, vy + 4, SSD1306_WHITE);
+    display.drawLine(vx, vy - 4, vx + 8, vy + 4, SSD1306_WHITE);
+    display.drawLine(vx, vy + 4, vx + 8, vy - 4, SSD1306_WHITE);
+  }
+
+  // Steam clouds puffing out from both sides
+  int sR = 2 + (frame % 4);
+  display.drawCircle(8 + shake, 30, sR, SSD1306_WHITE);
+  display.drawCircle(120 + shake, 30, sR, SSD1306_WHITE);
+
+  // Clenched Teeth Grimace Mouth
+  display.fillRoundRect(48 + shake, 48, 32, 10, 3, SSD1306_WHITE);
+  display.drawFastHLine(48 + shake, 53, 32, SSD1306_BLACK);
+  for (int tx = 54 + shake; tx < 78 + shake; tx += 6) {
+    display.drawFastVLine(tx, 48, 10, SSD1306_BLACK);
+  }
 }
 
-// 8. Sad / Crying with falling tear
+// 8. Sad Face (Sorrowful brows, glassy tear-filled eyes with water wobble, rolling teardrop & quivering pout)
 void drawSadFace(int frame) {
   display.clearDisplay();
 
-  // Droopy sad eyes (slanting outwards)
-  display.fillRoundRect(24, 20, 28, 26, 4, SSD1306_WHITE);
-  display.fillTriangle(24, 20, 52, 20, 24, 30, SSD1306_BLACK);
+  // Sorrowful arched eyebrows (slanting down-outwards)
+  for (int i = 0; i < 3; i++) {
+    display.drawLine(20, 18 - i, 54, 12 - i, SSD1306_WHITE);
+    display.drawLine(108, 18 - i, 74, 12 - i, SSD1306_WHITE);
+  }
 
-  display.fillRoundRect(76, 20, 28, 26, 4, SSD1306_WHITE);
-  display.fillTriangle(76, 20, 104, 20, 104, 30, SSD1306_BLACK);
+  // Glassy Tear-Filled Eyes
+  display.fillRoundRect(20, 18, 36, 30, 10, SSD1306_WHITE);
+  display.fillRoundRect(72, 18, 36, 30, 10, SSD1306_WHITE);
 
-  // Tear falling from right eye
-  int tearY = 36 + (frame % 14) * 2;
-  display.fillCircle(92, tearY, 2, SSD1306_WHITE);
-  display.drawPixel(92, tearY - 3, SSD1306_WHITE);
+  // Waterline wobble inside pupils
+  int wave = (frame % 6 < 3) ? 1 : 0;
+  display.fillCircle(38, 34 + wave, 7, SSD1306_BLACK);
+  display.fillCircle(90, 34 + wave, 7, SSD1306_BLACK);
 
-  // Sad curved down mouth
-  display.drawCircle(64, 58, 8, SSD1306_WHITE);
-  display.fillRect(52, 58, 24, 9, SSD1306_BLACK);
+  // Watery catchlight reflections
+  display.fillCircle(35, 27, 3, SSD1306_WHITE);
+  display.fillCircle(87, 27, 3, SSD1306_WHITE);
+  display.fillCircle(41, 35, 2, SSD1306_WHITE);
+  display.fillCircle(93, 35, 2, SSD1306_WHITE);
+
+  // Animated rolling teardrop swelling and running down the cheek
+  int tearStage = frame % 22;
+  int tearY = 36 + tearStage * 22 / 22;
+  display.fillCircle(92, tearY, 3, SSD1306_WHITE);
+  display.fillTriangle(92 - 3, tearY, 92 + 3, tearY, 92, tearY - 4, SSD1306_WHITE);
+  // Splash at bottom
+  if (tearStage >= 20) {
+    display.drawPixel(90, 60, SSD1306_WHITE);
+    display.drawPixel(94, 60, SSD1306_WHITE);
+  }
+
+  // Quivering down-turned pout mouth
+  int lipTremble = (frame % 4 < 2) ? 0 : 1;
+  display.drawCircle(64, 58 + lipTremble, 10, SSD1306_WHITE);
+  display.fillRect(50, 58 + lipTremble, 28, 12, SSD1306_BLACK);
 }
 
-// 9. Shocked / Surprised
+// 9. Surprised Face (Shock jolt, high-shot eyebrows, huge popped eyes with shaking pupils, dropped jaw & sweat drop)
 void drawSurprisedFace(int frame) {
   display.clearDisplay();
-  int widen = (frame % 4 < 2) ? 0 : 2;
 
-  // Huge wide vertical round eyes
-  display.fillRoundRect(24 - widen, 10, 28 + (widen * 2), 38, 10,
-                        SSD1306_WHITE);
-  display.fillRoundRect(76 - widen, 10, 28 + (widen * 2), 38, 10,
-                        SSD1306_WHITE);
+  int popY = (frame % 12 < 3) ? -2 : 0; // Shock jolt
 
-  // Inner black pupils looking wide
-  display.fillCircle(38, 28, 4, SSD1306_BLACK);
-  display.fillCircle(90, 28, 4, SSD1306_BLACK);
+  // Eyebrows shot high up near the top of the display!
+  display.fillRoundRect(22, 6 + popY, 32, 3, 1, SSD1306_WHITE);
+  display.fillRoundRect(74, 6 + popY, 32, 3, 1, SSD1306_WHITE);
 
-  // Huge 'O' mouth
-  display.fillCircle(64, 52, 6, SSD1306_WHITE);
-  display.fillCircle(64, 52, 4, SSD1306_BLACK);
+  // Enormous wide popped eyes
+  display.fillRoundRect(20, 12 + popY, 36, 36, 12, SSD1306_WHITE);
+  display.fillRoundRect(72, 12 + popY, 36, 36, 12, SSD1306_WHITE);
+
+  // Tiny shocked pupils shaking in disbelief
+  int sShk = (frame % 2 == 0) ? 1 : -1;
+  display.fillCircle(38 + sShk, 30 + popY, 4, SSD1306_BLACK);
+  display.fillCircle(90 + sShk, 30 + popY, 4, SSD1306_BLACK);
+  display.drawPixel(37 + sShk, 29 + popY, SSD1306_WHITE);
+  display.drawPixel(89 + sShk, 29 + popY, SSD1306_WHITE);
+
+  // Giant dropped-jaw 'O' mouth stretching downwards
+  display.fillRoundRect(56, 44 + popY, 16, 18, 7, SSD1306_WHITE);
+  display.fillRoundRect(58, 46 + popY, 12, 14, 5, SSD1306_BLACK);
+
+  // Anime sweat drop dripping down the side of the temple
+  int swY = 16 + (frame % 16);
+  display.fillCircle(116, swY, 3, SSD1306_WHITE);
+  display.fillTriangle(113, swY, 119, swY, 116, swY - 5, SSD1306_WHITE);
 }
 
-// 10. Laughing / XD
+// 10. Laughing Face (Belly laugh bounce, tight squint eyes > <, projectile tears of joy, vibrating mouth & tongue)
 void drawLaughingFace(int frame) {
   display.clearDisplay();
-  int shake = (frame % 2 == 0) ? 0 : 2;
 
-  // Left Eye: '>'
-  for (int i = 0; i < 4; i++) {
-    display.drawLine(24, 20 + i, 44, 30 + i, SSD1306_WHITE);
-    display.drawLine(44, 30 + i, 24, 40 + i, SSD1306_WHITE);
+  int bounce = (frame % 4 < 2) ? 0 : 3; // Rhythmic belly laugh shaking
+
+  // Tightly squinted laughing eyes (> <) with thick strokes
+  for (int i = -1; i <= 1; i++) {
+    // Left eye (>)
+    display.drawLine(22, 22 + bounce + i, 44, 32 + bounce + i, SSD1306_WHITE);
+    display.drawLine(44, 32 + bounce + i, 22, 42 + bounce + i, SSD1306_WHITE);
+
+    // Right eye (<)
+    display.drawLine(106, 22 + bounce + i, 84, 32 + bounce + i, SSD1306_WHITE);
+    display.drawLine(84, 32 + bounce + i, 106, 42 + bounce + i, SSD1306_WHITE);
   }
 
-  // Right Eye: '<'
-  for (int i = 0; i < 4; i++) {
-    display.drawLine(104, 20 + i, 84, 30 + i, SSD1306_WHITE);
-    display.drawLine(84, 30 + i, 104, 40 + i, SSD1306_WHITE);
-  }
+  // Projectile tears of joy spurting outwards from both eyes!
+  int t1 = frame % 8;
+  int t2 = (frame + 4) % 8;
+  // Left tears
+  display.fillCircle(14 - t1, 28 - t1 / 2, 2, SSD1306_WHITE);
+  display.fillCircle(12 - t2, 36 + t2 / 2, 2, SSD1306_WHITE);
+  // Right tears
+  display.fillCircle(114 + t1, 28 - t1 / 2, 2, SSD1306_WHITE);
+  display.fillCircle(116 + t2, 36 + t2 / 2, 2, SSD1306_WHITE);
 
-  // Wide grinning laughing mouth
-  display.fillCircle(64, 46 + shake, 12, SSD1306_WHITE);
-  display.fillRect(50, 40 + shake, 28, 8, SSD1306_BLACK);
+  // Massive joyful laughing open mouth with bouncing tongue
+  display.fillRoundRect(46, 38 + bounce, 36, 22, 10, SSD1306_WHITE);
+  display.fillRoundRect(48, 40 + bounce, 32, 18, 8, SSD1306_BLACK);
+  // Bouncing tongue
+  display.fillCircle(64, 52 + bounce, 8, SSD1306_WHITE);
 }
 
-// 11. Confused (One eye up, one eye small)
+// 11. Confused Face (One brow raised sky-high, one eye squinting, wavy squiggly mouth & animated floating '?')
 void drawConfusedFace(int frame) {
   display.clearDisplay();
 
-  // Left Eye: Normal round eye
-  display.fillRoundRect(24, 18, 28, 30, 6, SSD1306_WHITE);
-  display.fillCircle(38, 32, 4, SSD1306_BLACK);
+  // Asymmetrical Eyebrows
+  display.fillRoundRect(22, 14, 32, 4, 2, SSD1306_WHITE); // Left normal brow
+  display.fillRoundRect(74, 5, 32, 4, 2, SSD1306_WHITE);  // Right raised sky-high!
 
-  // Right Eye: Raised high, smaller & squinted
-  display.fillRoundRect(78, 10, 24, 20, 4, SSD1306_WHITE);
-  display.fillCircle(90, 18, 3, SSD1306_BLACK);
+  // Asymmetrical Eyes
+  // Left Eye: Curious round eye looking up-right
+  display.fillRoundRect(20, 20, 36, 28, 8, SSD1306_WHITE);
+  display.fillCircle(40, 32, 6, SSD1306_BLACK);
+  display.fillCircle(38, 30, 2, SSD1306_WHITE);
 
-  // Raised eyebrow on right
-  display.drawFastHLine(76, 6, 28, SSD1306_WHITE);
+  // Right Eye: Squinted narrow eye under the raised brow
+  display.fillRoundRect(74, 15, 32, 18, 6, SSD1306_WHITE);
+  display.fillCircle(90, 24, 4, SSD1306_BLACK);
 
-  // Wavy squiggly mouth
-  display.drawLine(52, 54, 60, 50, SSD1306_WHITE);
-  display.drawLine(60, 50, 68, 56, SSD1306_WHITE);
-  display.drawLine(68, 56, 76, 52, SSD1306_WHITE);
+  // Animated Question Mark '?' floating and bobbing over the raised brow
+  int qBob = (frame % 8 < 4) ? 0 : 2;
+  int qx = 114, qy = 6 + qBob;
+  display.drawCircle(qx + 3, qy + 3, 3, SSD1306_WHITE);
+  display.fillRect(qx - 1, qy + 3, 4, 4, SSD1306_BLACK);
+  display.drawLine(qx + 3, qy + 6, qx + 3, qy + 8, SSD1306_WHITE);
+  display.drawPixel(qx + 3, qy + 11, SSD1306_WHITE);
+
+  // Wavy Squiggly Mouth ("errr... what?")
+  display.drawLine(48, 52, 56, 49, SSD1306_WHITE);
+  display.drawLine(56, 49, 64, 55, SSD1306_WHITE);
+  display.drawLine(64, 55, 72, 49, SSD1306_WHITE);
+  display.drawLine(72, 49, 80, 53, SSD1306_WHITE);
 }
 
-// 12. Dizzy (XX Knockout)
+// 12. Dizzy Face (Hypnotic spinning spiral eyes, orbiting cartoon stars around head, loopy mouth & tongue)
 void drawDizzyFace(int frame) {
   display.clearDisplay();
 
-  // Left 'X'
-  for (int i = -2; i <= 2; i++) {
-    display.drawLine(24 + i, 18, 50 + i, 42, SSD1306_WHITE);
-    display.drawLine(50 + i, 18, 24 + i, 42, SSD1306_WHITE);
+  // Hypnotic Spinning Spiral Eyes
+  int rot = (frame * 35) % 360;
+  float rad = rot * 3.14159f / 180.0f;
+
+  for (int side = 0; side < 2; side++) {
+    int cx = (side == 0) ? 38 : 90;
+    int cy = 32;
+
+    // Outer eye circle
+    display.drawCircle(cx, cy, 16, SSD1306_WHITE);
+    display.drawCircle(cx, cy, 15, SSD1306_WHITE);
+
+    // Dynamic rotating spiral spokes
+    for (int a = 0; a < 3; a++) {
+      float ang = rad + a * 2.094f; // 120 degrees apart
+      int x1 = cx + (int)(cos(ang) * 4);
+      int y1 = cy + (int)(sin(ang) * 4);
+      int x2 = cx + (int)(cos(ang + 0.5f) * 8);
+      int y2 = cy + (int)(sin(ang + 0.5f) * 8);
+      int x3 = cx + (int)(cos(ang + 1.0f) * 13);
+      int y3 = cy + (int)(sin(ang + 1.0f) * 13);
+      display.drawLine(cx, cy, x1, y1, SSD1306_WHITE);
+      display.drawLine(x1, y1, x2, y2, SSD1306_WHITE);
+      display.drawLine(x2, y2, x3, y3, SSD1306_WHITE);
+    }
   }
 
-  // Right 'X'
-  for (int i = -2; i <= 2; i++) {
-    display.drawLine(76 + i, 18, 102 + i, 42, SSD1306_WHITE);
-    display.drawLine(102 + i, 18, 76 + i, 42, SSD1306_WHITE);
+  // 3 Cartoon Dizzy Stars orbiting in an ellipse around the head
+  float starOrbit = (frame * 12) * 3.14159f / 180.0f;
+  for (int s = 0; s < 3; s++) {
+    float sAng = starOrbit + s * 2.094f;
+    int sx = 64 + (int)(cos(sAng) * 48);
+    int sy = 12 + (int)(sin(sAng) * 7);
+
+    // Draw 4-point cartoon star
+    display.drawLine(sx - 3, sy, sx + 3, sy, SSD1306_WHITE);
+    display.drawLine(sx, sy - 3, sx, sy + 3, SSD1306_WHITE);
+    display.drawPixel(sx, sy, SSD1306_WHITE);
   }
 
-  // Mouth with tongue out
-  display.drawFastHLine(54, 50, 20, SSD1306_WHITE);
-  display.fillRoundRect(62, 50, 8, 8, 3, SSD1306_WHITE);
+  // Loopy dazed wavy mouth with tongue hanging out sideways
+  display.drawLine(50, 52, 58, 49, SSD1306_WHITE);
+  display.drawLine(58, 49, 66, 54, SSD1306_WHITE);
+  display.drawLine(66, 54, 76, 50, SSD1306_WHITE);
+
+  // Dangling loopy tongue (blep)
+  display.fillRoundRect(68, 51, 8, 9, 3, SSD1306_WHITE);
+  display.drawLine(72, 51, 72, 57, SSD1306_BLACK);
 }
 
 // 13. Torch Mode (100% All Pixels ON at Maximum Brightness)
@@ -1315,108 +1572,129 @@ void drawBirthdayFace(int frame) {
 // CLOCK & DATE SLIDES (With Smooth Slide Transition)
 // ==========================================
 
-// Helper: Draw smooth rounded vector digits (52px tall, round corners, NO slash in 0)
-void drawSmoothBigDigit(int x, int y, char c, int w, int h) {
-  int r = 8; // Corner radius
-  int t = 5; // Stroke thickness
+// Helper: Draw smooth circular-geometry vector digits (Any width, height, stroke)
+void drawCircularDigit(int x, int y, char c, int w, int h, int stroke) {
+  int r = w / 2;
+  int rIn = max(1, r - stroke);
+  int midY = y + h / 2;
 
   switch (c) {
     case '0':
-      // Clean round oval with NO line in the middle
       display.fillRoundRect(x, y, w, h, r, SSD1306_WHITE);
-      display.fillRoundRect(x + t, y + t, w - 2 * t, h - 2 * t, 4, SSD1306_BLACK);
+      display.fillRoundRect(x + stroke, y + stroke, w - 2 * stroke, h - 2 * stroke, rIn, SSD1306_BLACK);
       break;
 
-    case '1':
-      display.fillRoundRect(x + w - t - 2, y, t + 1, h, 2, SSD1306_WHITE);
-      display.fillRoundRect(x + w - t - 9, y + 2, 8, t, 2, SSD1306_WHITE);
+    case '1': {
+      int barX = x + (w - stroke) / 2;
+      display.fillRoundRect(barX, y, stroke, h, max(1, stroke / 2), SSD1306_WHITE);
+      display.fillRoundRect(barX - stroke, y + 2, stroke, stroke, max(1, stroke / 2), SSD1306_WHITE);
       break;
+    }
 
     case '2': {
-      display.fillRoundRect(x, y, w, 18, r, SSD1306_WHITE);
-      display.fillRoundRect(x, y + t, w - t, 13, 3, SSD1306_BLACK);
-      display.fillRoundRect(x, y + h - t, w, t, 2, SSD1306_WHITE);
-      for (int i = 0; i < t; i++) {
-        display.drawLine(x + w - t + i, y + 14, x + i, y + h - t, SSD1306_WHITE);
+      int topH = h * 55 / 100;
+      display.fillRoundRect(x, y, w, topH, r, SSD1306_WHITE);
+      display.fillRoundRect(x + stroke, y + stroke, w - 2 * stroke, topH - stroke, rIn, SSD1306_BLACK);
+      display.fillRect(x, y + h * 28 / 100, w * 60 / 100, h * 27 / 100, SSD1306_BLACK);
+      for (int i = 0; i < stroke; i++) {
+        display.drawLine(x + w - stroke + i, y + h * 45 / 100, x + i, y + h - stroke, SSD1306_WHITE);
       }
+      display.fillRoundRect(x, y + h - stroke, w, stroke, max(1, stroke / 2), SSD1306_WHITE);
       break;
     }
 
     case '3': {
-      int topH = h / 2 + 1;
-      int botH = h - topH + 2;
-      display.fillRoundRect(x, y, w, topH, r, SSD1306_WHITE);
-      display.fillRoundRect(x + t, y + t, w - 2 * t, topH - 2 * t, 3, SSD1306_BLACK);
-      display.fillRect(x, y + t, t + 1, topH - 2 * t, SSD1306_BLACK);
-      display.fillRoundRect(x, y + topH - 2, w, botH, r, SSD1306_WHITE);
-      display.fillRoundRect(x + t, y + topH - 2 + t, w - 2 * t, botH - 2 * t, 3, SSD1306_BLACK);
-      display.fillRect(x, y + topH - 2 + t, t + 1, botH - 2 * t, SSD1306_BLACK);
-      display.fillRoundRect(x + 5, y + topH - 3, w - 8, t, 2, SSD1306_WHITE);
+      int hHalf = h / 2 + 1;
+      display.fillRoundRect(x, y, w, hHalf, r, SSD1306_WHITE);
+      display.fillRoundRect(x + stroke, y + stroke, w - 2 * stroke, hHalf - 2 * stroke, rIn, SSD1306_BLACK);
+      display.fillRect(x, y + stroke, w * 55 / 100, hHalf - 2 * stroke, SSD1306_BLACK);
+      display.fillRoundRect(x, y + h - hHalf, w, hHalf, r, SSD1306_WHITE);
+      display.fillRoundRect(x + stroke, y + h - hHalf + stroke, w - 2 * stroke, hHalf - 2 * stroke, rIn, SSD1306_BLACK);
+      display.fillRect(x, y + h - hHalf + stroke, w * 55 / 100, hHalf - 2 * stroke, SSD1306_BLACK);
+      display.fillRoundRect(x + stroke, midY - stroke / 2, w / 2, stroke, max(1, stroke / 2), SSD1306_WHITE);
       break;
     }
 
-    case '4':
-      display.fillRoundRect(x + w - t - 1, y, t + 1, h, 2, SSD1306_WHITE);
-      display.fillRoundRect(x, y, t, 32, 2, SSD1306_WHITE);
-      display.fillRoundRect(x, y + 29, w, t, 2, SSD1306_WHITE);
+    case '4': {
+      int vX = x + w - stroke - 1;
+      display.fillRoundRect(vX, y, stroke, h, max(1, stroke / 2), SSD1306_WHITE);
+      int hY = y + h * 60 / 100;
+      display.fillRoundRect(x, hY, w, stroke, max(1, stroke / 2), SSD1306_WHITE);
+      for (int i = 0; i < stroke; i++) {
+        display.drawLine(x + i, hY, x + w * 40 / 100 + i, y, SSD1306_WHITE);
+      }
       break;
+    }
 
     case '5': {
-      int botH = h / 2 + 4;
-      display.fillRoundRect(x, y, w, t, 2, SSD1306_WHITE);
-      display.fillRect(x, y, t, 25, SSD1306_WHITE);
+      int topH = h * 45 / 100;
+      int botH = h - topH + 2;
+      display.fillRoundRect(x, y, w, stroke, max(1, stroke / 2), SSD1306_WHITE);
+      display.fillRoundRect(x, y, stroke, topH, max(1, stroke / 2), SSD1306_WHITE);
       display.fillRoundRect(x, y + h - botH, w, botH, r, SSD1306_WHITE);
-      display.fillRoundRect(x + t, y + h - botH + t, w - 2 * t, botH - 2 * t, 3, SSD1306_BLACK);
-      display.fillRect(x, y + h - botH + t, t + 1, botH - 2 * t, SSD1306_BLACK);
-      display.fillRoundRect(x, y + h - botH, w - 4, t, 2, SSD1306_WHITE);
+      display.fillRoundRect(x + stroke, y + h - botH + stroke, w - 2 * stroke, botH - 2 * stroke, rIn, SSD1306_BLACK);
+      display.fillRect(x, y + h - botH + stroke, w * 55 / 100, botH - 2 * stroke, SSD1306_BLACK);
+      display.fillRoundRect(x, y + h - botH, w * 70 / 100, stroke, max(1, stroke / 2), SSD1306_WHITE);
       break;
     }
 
     case '6': {
-      int botH = h / 2 + 3;
-      display.fillRoundRect(x, y, t, h, 2, SSD1306_WHITE);
-      display.fillRoundRect(x, y, w, t, 2, SSD1306_WHITE);
-      display.fillRoundRect(x, y + h - botH, w, botH, 7, SSD1306_WHITE);
-      display.fillRoundRect(x + t, y + h - botH + t, w - 2 * t, botH - 2 * t, 3, SSD1306_BLACK);
+      int botH = h * 58 / 100;
+      int topH = h * 55 / 100;
+      // Top curved hook
+      display.fillRoundRect(x, y, w, topH, r, SSD1306_WHITE);
+      display.fillRoundRect(x + stroke, y + stroke, w - 2 * stroke, topH - stroke, rIn, SSD1306_BLACK);
+      display.fillRect(x + w * 45 / 100, y + stroke, w * 55 / 100, topH, SSD1306_BLACK);
+      // Bottom circular loop
+      display.fillRoundRect(x, y + h - botH, w, botH, r, SSD1306_WHITE);
+      display.fillRoundRect(x + stroke, y + h - botH + stroke, w - 2 * stroke, botH - 2 * stroke, rIn, SSD1306_BLACK);
+      // Left smooth spine
+      display.fillRoundRect(x, y + stroke, stroke, h - 2 * stroke, max(1, stroke / 2), SSD1306_WHITE);
       break;
     }
 
-    case '7':
-      display.fillRoundRect(x, y, w, 6, 2, SSD1306_WHITE);
-      for (int i = 0; i < t; i++) {
-        display.drawLine(x + w - t + i, y + 5, x + 3 + i, y + h - 1, SSD1306_WHITE);
+    case '7': {
+      display.fillRoundRect(x, y, w, stroke, max(1, stroke / 2), SSD1306_WHITE);
+      for (int i = 0; i < stroke; i++) {
+        display.drawLine(x + w - stroke + i, y, x + w * 20 / 100 + i, y + h - 1, SSD1306_WHITE);
       }
       break;
+    }
 
     case '8': {
-      int topH = h / 2 + 1;
-      int botH = h - topH + 2;
-      display.fillRoundRect(x, y, w, topH, 7, SSD1306_WHITE);
-      display.fillRoundRect(x + t, y + t, w - 2 * t, topH - 2 * t, 3, SSD1306_BLACK);
-      display.fillRoundRect(x, y + topH - 2, w, botH, 7, SSD1306_WHITE);
-      display.fillRoundRect(x + t, y + topH - 2 + t, w - 2 * t, botH - 2 * t, 3, SSD1306_BLACK);
+      int hHalf = h / 2 + 1;
+      display.fillRoundRect(x, y, w, hHalf, r, SSD1306_WHITE);
+      display.fillRoundRect(x + stroke, y + stroke, w - 2 * stroke, hHalf - 2 * stroke, rIn, SSD1306_BLACK);
+      display.fillRoundRect(x, y + h - hHalf, w, hHalf, r, SSD1306_WHITE);
+      display.fillRoundRect(x + stroke, y + h - hHalf + stroke, w - 2 * stroke, hHalf - 2 * stroke, rIn, SSD1306_BLACK);
       break;
     }
 
     case '9': {
-      int topH = h / 2 + 3;
-      // Top complete solid loop
-      display.fillRoundRect(x, y, w, topH, 7, SSD1306_WHITE);
-      display.fillRoundRect(x + t, y + t, w - 2 * t, topH - 2 * t, 3, SSD1306_BLACK);
-      // Right vertical stem from top to bottom (solid unbroken line!)
-      display.fillRoundRect(x + w - t, y, t, h, 2, SSD1306_WHITE);
-      // Bottom horizontal base bar (Classic digital 9, NO upward hook like 'g'!)
-      display.fillRoundRect(x, y + h - t, w, t, 2, SSD1306_WHITE);
+      int topH = h * 58 / 100;
+      int botH = h * 55 / 100;
+      // Bottom curved hook
+      display.fillRoundRect(x, y + h - botH, w, botH, r, SSD1306_WHITE);
+      display.fillRoundRect(x + stroke, y + h - botH + stroke, w - 2 * stroke, botH - 2 * stroke, rIn, SSD1306_BLACK);
+      display.fillRect(x, y + h - botH, w * 55 / 100, botH - stroke, SSD1306_BLACK);
+      // Top circular loop
+      display.fillRoundRect(x, y, w, topH, r, SSD1306_WHITE);
+      display.fillRoundRect(x + stroke, y + stroke, w - 2 * stroke, topH - stroke, rIn, SSD1306_BLACK);
+      // Right smooth spine
+      display.fillRoundRect(x + w - stroke, y + stroke, stroke, h - 2 * stroke, max(1, stroke / 2), SSD1306_WHITE);
       break;
     }
 
-    default:
-      display.fillRoundRect(x, y, w, h, r, SSD1306_WHITE);
+    case ':': {
+      int dotR = max(1, stroke / 2);
+      display.fillCircle(x + w / 2, y + h * 35 / 100, dotR, SSD1306_WHITE);
+      display.fillCircle(x + w / 2, y + h * 68 / 100, dotR, SSD1306_WHITE);
       break;
+    }
   }
 }
 
-// Slide 1: TIME (Massive 52px Hour, Equal Distance Blinking Colon, Right Margin Safe from Bezel)
+// Slide 1: TIME (Clean circular font, blinking colon, AM/PM badge & live seconds)
 void drawSlide1_Time(int xOffset, struct tm *t) {
   display.setTextWrap(false);
   display.setTextColor(SSD1306_WHITE);
@@ -1432,56 +1710,57 @@ void drawSlide1_Time(int xOffset, struct tm *t) {
   snprintf(secBuf, sizeof(secBuf), "%02d", t->tm_sec);
   const char *ampm = (t->tm_hour >= 12) ? "PM" : "AM";
 
-  // Coordinates with safe clearance from 3D-printed enclosure bezel:
-  // Left margin: 8px. Right margin: 12px (PM will never cut!). Top margin: 6px.
-  int digitW = 22;
-  int digitH = 52;
-  int hourY  = 6;
+  const char *shortDays[] = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
+  const char *shortMonths[] = { "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+  int wday = (t->tm_wday >= 0 && t->tm_wday <= 6) ? t->tm_wday : 0;
+  int mon  = (t->tm_mon >= 0 && t->tm_mon <= 11) ? t->tm_mon : 0;
 
-  int hourX1 = xOffset + 8;
-  int hourX2 = xOffset + 8 + digitW + 3; // xOffset + 33
-  int hourRight = hourX2 + digitW;       // xOffset + 55
+  // 1. Top Header: Day & Date banner centered (e.g. "SUN  *  08 NOV")
+  char topHeader[32];
+  snprintf(topHeader, sizeof(topHeader), "%s  *  %02d %s", shortDays[wday], t->tm_mday, shortMonths[mon]);
+  display.setTextSize(1);
+  int headerW = strlen(topHeader) * 6;
+  int headerX = xOffset + (128 - headerW) / 2;
+  display.setCursor(headerX, 4);
+  display.print(topHeader);
 
-  // Equal Distance on both sides of Colon:
-  // Gap from Hour to Colon = 8px. Gap from Colon to Minutes = 9px.
-  int colonX = xOffset + 65;
-  int rightX = xOffset + 76;
-  int ampmX  = xOffset + 98; // Ends at ~116px -> 12px safe clearance from right bezel!
+  // 2. Main Row: Balanced Circular Digits (HH : MM)
+  int digW = 17;
+  int digH = 33;
+  int digStroke = 4;
+  int yDig = 18;
 
-  // 1. Draw Massive Smooth Hour Digits (Round corners, NO slash in 0, solid unbroken 9)
-  drawSmoothBigDigit(hourX1, hourY, hourBuf[0], digitW, digitH);
-  drawSmoothBigDigit(hourX2, hourY, hourBuf[1], digitW, digitH);
+  // Hour digits
+  drawCircularDigit(xOffset + 8, yDig, hourBuf[0], digW, digH, digStroke);
+  drawCircularDigit(xOffset + 28, yDig, hourBuf[1], digW, digH, digStroke);
 
-  // 2. Colon ':' dots (Blinks with second: 500ms ON / 500ms OFF)
-  bool colonVisible = (millis() % 1000 < 500);
-  if (colonVisible) {
-    display.fillCircle(colonX, 17, 2, SSD1306_WHITE);
-    display.fillCircle(colonX, 45, 2, SSD1306_WHITE);
+  // Blinking circular colon dots (500ms ON / 500ms OFF)
+  bool colonOn = (millis() % 1000 < 500);
+  if (colonOn) {
+    display.fillCircle(xOffset + 49, yDig + 10, 2, SSD1306_WHITE);
+    display.fillCircle(xOffset + 49, yDig + 23, 2, SSD1306_WHITE);
   }
 
-  // 3. Minutes (FreeSansBold 12pt)
-  display.setFont(&FreeSansBold12pt7b);
+  // Minute digits
+  drawCircularDigit(xOffset + 55, yDig, minBuf[0], digW, digH, digStroke);
+  drawCircularDigit(xOffset + 75, yDig, minBuf[1], digW, digH, digStroke);
+
+  // 3. Right Side: AM/PM Pill Badge + Live Circular Seconds
+  display.fillRoundRect(xOffset + 98, 20, 24, 12, 3, SSD1306_WHITE);
+  display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
   display.setTextSize(1);
-  display.setCursor(rightX, 26);
-  display.print(minBuf);
-
-  // 4. Seconds (FreeSansBold 9pt) & AM/PM (FreeSans 9pt)
-  display.setFont(&FreeSansBold9pt7b);
-  display.setCursor(rightX, 52);
-  display.print(secBuf);
-
-  display.setFont(&FreeSans9pt7b);
-  display.setCursor(ampmX, 52);
+  display.setCursor(xOffset + 104, 22);
   display.print(ampm);
+  display.setTextColor(SSD1306_WHITE);
 
-  // Reset to default font & wrap so other animations/faces work normally
-  display.setFont(NULL);
+  // Live Seconds in mini circular digits
+  drawCircularDigit(xOffset + 99, 36, secBuf[0], 9, 15, 2);
+  drawCircularDigit(xOffset + 112, 36, secBuf[1], 9, 15, 2);
+
   display.setTextWrap(true);
-  display.setTextSize(1);
 }
 
-// Slide 2: DATE (Line 1: "02 November", Line 2: "Sunday, 2026")
-// Mathematically centered in both X and Y on 0.96 OLED (128x64)
+// Slide 2: DATE (Circular font numbers, elegant badge & pearl separator)
 void drawSlide2_Date(int xOffset, struct tm *t) {
   display.setTextWrap(false);
   display.setTextColor(SSD1306_WHITE);
@@ -1490,74 +1769,51 @@ void drawSlide2_Date(int xOffset, struct tm *t) {
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   };
-  const char *shortMonths[] = {
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-  };
   const char *fullDays[] = {
     "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-  };
-  const char *shortDays[] = {
-    "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
   };
 
   int mon  = (t->tm_mon >= 0 && t->tm_mon <= 11) ? t->tm_mon : 0;
   int wday = (t->tm_wday >= 0 && t->tm_wday <= 6) ? t->tm_wday : 0;
   int year = t->tm_year + 1900;
 
-  // 1. Measure Line 1: Day of Month + Month (e.g. "02 November")
-  char dateBuf[32];
-  snprintf(dateBuf, sizeof(dateBuf), "%02d %s", t->tm_mday, fullMonths[mon]);
-
-  display.setFont(&FreeSansBold9pt7b);
+  // 1. Top: Day of Week in rounded pill badge
+  const char *dayName = fullDays[wday];
+  int dayLen = strlen(dayName);
+  int badgeW = dayLen * 6 + 14;
+  int badgeX = xOffset + (128 - badgeW) / 2;
+  display.fillRoundRect(badgeX, 2, badgeW, 12, 3, SSD1306_WHITE);
+  display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
   display.setTextSize(1);
-  int16_t x1, y1;
-  uint16_t w1, h1;
-  display.getTextBounds(dateBuf, 0, 0, &x1, &y1, &w1, &h1);
-  if (w1 > 120) {
-    snprintf(dateBuf, sizeof(dateBuf), "%02d %s.", t->tm_mday, shortMonths[mon]);
-    display.getTextBounds(dateBuf, 0, 0, &x1, &y1, &w1, &h1);
-  }
+  display.setCursor(badgeX + 7, 4);
+  display.print(dayName);
+  display.setTextColor(SSD1306_WHITE);
 
-  // 2. Measure Line 2: Day of Week, Year (e.g. "Sunday, 2026")
-  char dayYearBuf[32];
-  snprintf(dayYearBuf, sizeof(dayYearBuf), "%s, %04d", fullDays[wday], year);
+  // 2. Middle Left: Big Circular Day of Month (e.g. 08)
+  char dayBuf[4];
+  snprintf(dayBuf, sizeof(dayBuf), "%02d", t->tm_mday);
+  drawCircularDigit(xOffset + 14, 18, dayBuf[0], 18, 33, 4);
+  drawCircularDigit(xOffset + 36, 18, dayBuf[1], 18, 33, 4);
 
-  display.setFont(&FreeSans9pt7b);
-  int16_t x2, y2;
-  uint16_t w2, h2;
-  display.getTextBounds(dayYearBuf, 0, 0, &x2, &y2, &w2, &h2);
-  if (w2 > 120) {
-    snprintf(dayYearBuf, sizeof(dayYearBuf), "%s, %04d", shortDays[wday], year);
-    display.getTextBounds(dayYearBuf, 0, 0, &x2, &y2, &w2, &h2);
-  }
+  // 3. Middle Right: Full Month Name & Year in Circular Digits
+  display.setTextSize(1);
+  display.setCursor(xOffset + 63, 20);
+  display.print(fullMonths[mon]);
 
-  // 3. Exact Mathematical Centering (X and Y)
-  // X: Left margin == Right margin for each line
-  int line1X = xOffset + (128 - w1) / 2 - x1;
-  int line2X = xOffset + (128 - w2) / 2 - x2;
+  // Year in circular digits
+  char yearBuf[6];
+  snprintf(yearBuf, sizeof(yearBuf), "%04d", year);
+  drawCircularDigit(xOffset + 63, 33, yearBuf[0], 10, 16, 2);
+  drawCircularDigit(xOffset + 77, 33, yearBuf[1], 10, 16, 2);
+  drawCircularDigit(xOffset + 91, 33, yearBuf[2], 10, 16, 2);
+  drawCircularDigit(xOffset + 105, 33, yearBuf[3], 10, 16, 2);
 
-  // Y: Calculate combined height and center vertically (Top Margin == Bottom Margin)
-  int gap = 8;
-  int totalH = h1 + gap + h2;
-  int topMargin = (64 - totalH) / 2;
-  int line1Y = topMargin - y1;
-  int line2Y = (topMargin + h1 + gap) - y2;
+  // 4. Bottom: Decorative separator with center pearl
+  display.drawFastHLine(xOffset + 10, 56, 48, SSD1306_WHITE);
+  display.fillCircle(xOffset + 64, 56, 2, SSD1306_WHITE);
+  display.drawFastHLine(xOffset + 70, 56, 48, SSD1306_WHITE);
 
-  // Draw Line 1 (Bold Month & Day)
-  display.setFont(&FreeSansBold9pt7b);
-  display.setCursor(line1X, line1Y);
-  display.print(dateBuf);
-
-  // Draw Line 2 (Day of Week & Year)
-  display.setFont(&FreeSans9pt7b);
-  display.setCursor(line2X, line2Y);
-  display.print(dayYearBuf);
-
-  // Reset to default font & wrap so other animations/faces work normally
-  display.setFont(NULL);
   display.setTextWrap(true);
-  display.setTextSize(1);
 }
 
 // ==========================================
@@ -3186,14 +3442,13 @@ void loop() {
   // ==========================================
   // Keep face animation natural (180ms per frame)
   static unsigned long lastFaceFrame = 0;
-  if (now - lastFaceFrame >= 180) {
+  if (now - lastFaceFrame >= 40) {
     lastFaceFrame = now;
     animFrame++;
   }
 
-  // Display refresh: 40ms (~25 FPS) for butter-smooth sliding transitions & second ticks,
-  // 180ms when stationary face is shown
-  int animInterval = (slideshowActive || currentFace == "time" || currentFace == "clock" || currentFace == "ram" || currentFace == "fireworks" || currentFace == "diwali" || currentFace == "birthday") ? 40 : 180;
+  // Display refresh: butter-smooth 40ms (~25 FPS) for ALL animations & expressive emojis
+  int animInterval = 40;
   if (now - lastAnimUpdate >= animInterval) {
     lastAnimUpdate = now;
     if (oledConnected) {
