@@ -47,7 +47,7 @@ WebServer server(80);
 
 // Current active face mode
 String currentFace = "idle";
-String bdayName = "Jay";
+String bdayName = "BUDDY";
 unsigned long lastAnimUpdate = 0;
 int animFrame = 0;
 
@@ -540,7 +540,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:6px;" onclick="event.stopPropagation()">
-          <input type="text" id="bdayInput" maxlength="10" placeholder="NAME" value="JAY"
+          <input type="text" id="bdayInput" maxlength="10" placeholder="NAME" value="BUDDY"
                  style="background:rgba(9, 13, 22, 0.85); border:1px solid #fbbf24; color:#f8fafc; border-radius:8px; padding:6px 8px; font-size:13px; font-weight:800; width:110px; text-align:center; text-transform:uppercase; outline:none;"
                  oninput="handleBdayInput(this.value)">
           <button onclick="saveAndPlayBday()" style="background:linear-gradient(135deg, #fbbf24, #f43f5e); border:none; border-radius:8px; color:#fff; font-weight:700; padding:7px 12px; font-size:12px; cursor:pointer; box-shadow:0 0 10px rgba(251,191,36,0.3);">
@@ -814,9 +814,9 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     function saveAndPlayBday() {
       var inp = document.getElementById('bdayInput');
-      var name = inp ? inp.value.trim() : 'JAY';
+      var name = inp ? inp.value.trim() : 'BUDDY';
       if (name.length > 10) name = name.substring(0, 10);
-      if (name.length === 0) name = 'JAY';
+      if (name.length === 0) name = 'BUDDY';
       if (inp) inp.value = name.toUpperCase();
 
       handleBdayInput(name);
@@ -826,7 +826,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
     function selectBirthday(el) {
       var inp = document.getElementById('bdayInput');
-      var name = (inp && inp.value.trim().length > 0) ? inp.value.trim() : 'JAY';
+      var name = (inp && inp.value.trim().length > 0) ? inp.value.trim() : 'BUDDY';
       setFace('birthday', 'HBD ' + name.toUpperCase() + ' 🎂', el);
     }
 
@@ -1384,7 +1384,7 @@ void drawBirthdayFace(int frame) {
   // Get active custom name (trimmed, uppercase, max 10 chars)
   String name = bdayName;
   name.trim();
-  if (name.length() == 0) name = "JAY";
+  if (name.length() == 0) name = "BUDDY";
   if (name.length() > 10) name = name.substring(0, 10);
   name.toUpperCase();
   int nameLen = name.length();
@@ -1466,7 +1466,7 @@ void drawBirthdayFace(int frame) {
 
   } else if (t < 6600) {
     // ========================================================
-    // SCREEN 3: CUSTOM NAME (e.g. "JAY") (4400 to 6600ms)
+    // SCREEN 3: CUSTOM NAME (e.g. "BUDDY") (4400 to 6600ms)
     // ========================================================
     display.setTextColor(SSD1306_WHITE);
 
@@ -1487,7 +1487,7 @@ void drawBirthdayFace(int frame) {
     // Display Name in Big Bold Centered Text
     int bobY = 14 + ((frame % 4 < 2) ? 0 : 2);
     if (nameLen <= 5) {
-      // Very big size 3 for short names (e.g. JAY)
+      // Very big size 3 for short names (e.g. BUDDY)
       display.setTextSize(3);
       int textW = nameLen * 18;
       int nameX = (128 - textW) / 2;
@@ -1911,16 +1911,16 @@ void drawDiwaliFace(int frame) {
       display.drawPixel(cx + d, cy + 5, SSD1306_BLACK);
     }
 
-    // 3. Diya Top Rim & Inner Oil Pool (Ghee / Tel Kund)
+    // 3. Diya Top Rim & Inner Oil Reservoir
     display.fillRoundRect(cx - 24, cy - 5, 48, 5, 2, SSD1306_WHITE); // Top wide lip
     display.fillRoundRect(cx - 19, cy - 4, 38, 3, 1, SSD1306_BLACK); // Inner oil pool
 
-    // 4. Cotton Wick (Rui ki Baati)
+    // 4. Cotton Wick
     display.drawFastVLine(cx - 1, cy - 10, 7, SSD1306_WHITE);
     display.drawFastVLine(cx, cy - 10, 7, SSD1306_WHITE);
     display.drawFastVLine(cx + 1, cy - 10, 7, SSD1306_WHITE);
 
-    // 5. SLOW-MOTION FLICKERING FLAME (Pavitra Deepak Jyoti)
+    // 5. SLOW-MOTION FLICKERING FLAME
     // Slow, realistic breathing motion (~1.2 Hz)
     float sway = 2.4f * sin(dt * 0.0035f) + 0.8f * sin(dt * 0.008f);
     float flameH = 18.0f + 3.0f * sin(dt * 0.005f); // Flame stretches & breathes
@@ -2284,7 +2284,7 @@ void drawRamFace(int frame) {
   }
 
   // ----------------------------------------------------
-  // 3. KODANDA DHANUSH (Authentic Recurve Bow on Left)
+  // 3. Kodanda Dhanush (Authentic Recurve Bow on Left)
   // ----------------------------------------------------
   int bowTopY = 12, bowBotY = 52;
   int tipX = 26;
@@ -3010,7 +3010,7 @@ void loadSettings() {
   prefs.begin("mybot", true); // true = read-only
   currentFace    = prefs.getString("face", "idle");
   slideshowActive = prefs.getBool("slideshow", false);
-  bdayName        = prefs.getString("bdayName", "Jay");
+  bdayName        = prefs.getString("bdayName", "BUDDY");
   String pl       = prefs.getString("playlist", "");
   prefs.end();
 
@@ -3228,8 +3228,8 @@ void setup() {
 
   // CRITICAL HARDWARE FIX FOR ESP32-C3 SUPERMINI:
   // Reduce TX power to 8.5 dBm (raw value 34).
-  // SuperMini ka tiny voltage regulator peak power (19.5dBm) par crash ho jata
-  // tha, jisse Wi-Fi antenna radio switch off ho jata tha!
+  // The SuperMini onboard voltage regulator can brown out at peak TX power (19.5 dBm),
+  // which can cause the Wi-Fi radio to reset. Limiting to 8.5 dBm ensures rock-solid stability.
   esp_wifi_set_max_tx_power(34);
   Serial.println("[RF POWER] TX Power set to 8.5 dBm (SuperMini Stable Mode)");
 
@@ -3262,7 +3262,7 @@ void setup() {
     disableWiFi();
   });
 
-  // Web Browser OTA Route (Bina kisi app ke direct browser se .bin upload)
+  // Web Browser OTA Route (Upload .bin binary directly via any web browser without external software)
   server.on("/update", HTTP_POST, []() {
     server.sendHeader("Connection", "close");
     server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
