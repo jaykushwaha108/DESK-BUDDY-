@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-# 🤖 Lumina C3 — Animated Robot Companion, Smart Clock & Festive OLED Display
+# 🤖 DESK BUDDY — Animated Robot Companion, Smart Clock & Festive OLED Display
 
 <div align="center">
 
@@ -19,7 +18,7 @@
 
 ## 🌟 Overview
 
-**Lumina C3** transforms an ESP32-C3 SuperMini and a 0.96" SSD1306 OLED display into a living, emotive desktop robot pet and multifunctional smart display. 
+**DESK BUDDY** transforms an ESP32-C3 SuperMini and a 0.96" SSD1306 OLED display into a living, emotive desktop robot pet and multifunctional smart display. 
 
 Equipped with a built-in Wi-Fi SoftAP and responsive dark-mode web controller, you can switch emotions on the fly, customize birthday greetings, schedule automated slide transitions, update firmware over the air without plugging in a cable, and enjoy fluid 25 FPS vector animations.
 
@@ -126,8 +125,8 @@ Every emotion features organic micro-animations, lifelike eye physics, dynamic g
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/<your-username>/<your-repo-name>.git
-   cd <your-repo-name>
+   git clone https://github.com/jaykushwaha108/DESK-BUDDY-.git
+   cd DESK-BUDDY-
    ```
 
 2. **Open in VS Code:**
@@ -208,7 +207,3 @@ This project is open-source under the [MIT License](LICENSE). Feel free to use, 
 <div align="center">
 Crafted with ❤️ for the maker & embedded community.
 </div>
-
-=======
-# DESK-BUDDY-
->>>>>>> 34a57c3a71625e260bad496868ab7a5e704e75f2
