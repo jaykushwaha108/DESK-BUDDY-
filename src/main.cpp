@@ -413,8 +413,9 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       <div>
         <div style="font-weight:700; font-size:14px; color:#38bdf8; display:flex; align-items:center; gap:6px;">
           <span>🎞️</span> Slideshow Playlist
+          <span id="slideSavedBadge" style="font-size:11px; color:#34d399; font-weight:700; margin-left:4px;"></span>
         </div>
-        <div style="font-size:11px; color:var(--text-dim);">Line se cycle hone ke liye list banayein</div>
+        <div style="font-size:11px; color:var(--text-dim);">Automated carousel with custom durations (auto-saved to memory)</div>
       </div>
       <button id="slideshowToggleBtn" onclick="toggleSlideshow()" style="background:linear-gradient(135deg, #10b981, #06b6d4); color:#fff; border:none; padding:7px 14px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 0 12px rgba(16,185,129,0.3);">
         ▶ Start Slideshow
@@ -432,98 +433,98 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
   <div class="grid">
     <!-- 1. Standalone Time -->
-    <div class="card" onclick="setFace('time', 'Digital Time (Live)', this)">
+    <div class="card" id="card_time" onclick="setFace('time', 'Digital Time (Live)', this)">
       <span class="emoji">🕒</span>
       <div class="title">Digital Time</div>
       <div class="desc">HH : MM : SS Live</div>
     </div>
 
     <!-- 2. Standalone Date -->
-    <div class="card" onclick="setFace('date', 'Today Date', this)">
+    <div class="card" id="card_date" onclick="setFace('date', 'Today Date', this)">
       <span class="emoji">📅</span>
       <div class="title">Today Date</div>
       <div class="desc">Day, Month, Year</div>
     </div>
 
     <!-- 3. Normal / Idle -->
-    <div class="card selected" onclick="setFace('idle', 'Normal / Blink', this)">
+    <div class="card" id="card_idle" onclick="setFace('idle', 'Normal / Blink', this)">
       <span class="emoji">👀</span>
       <div class="title">Normal</div>
       <div class="desc">Cute Blinking</div>
     </div>
 
     <!-- 2. Happy -->
-    <div class="card" onclick="setFace('happy', 'Happy / Smile', this)">
+    <div class="card" id="card_happy" onclick="setFace('happy', 'Happy / Smile', this)">
       <span class="emoji">😊</span>
       <div class="title">Happy</div>
       <div class="desc">Big Joyful Smile</div>
     </div>
 
     <!-- 3. Love / Heart Eyes -->
-    <div class="card" onclick="setFace('love', 'Love / Heart Eyes', this)">
+    <div class="card" id="card_love" onclick="setFace('love', 'Love / Heart Eyes', this)">
       <span class="emoji">😍</span>
       <div class="title">Love</div>
       <div class="desc">Pulsing Hearts</div>
     </div>
 
     <!-- 4. Wink -->
-    <div class="card" onclick="setFace('wink', 'Wink / Naughty', this)">
+    <div class="card" id="card_wink" onclick="setFace('wink', 'Wink / Naughty', this)">
       <span class="emoji">😉</span>
       <div class="title">Wink</div>
       <div class="desc">Playful Wink</div>
     </div>
 
     <!-- 5. Cool / Sunglasses -->
-    <div class="card" onclick="setFace('cool', 'Cool / Sunglasses', this)">
+    <div class="card" id="card_cool" onclick="setFace('cool', 'Cool / Sunglasses', this)">
       <span class="emoji">😎</span>
       <div class="title">Cool</div>
       <div class="desc">Dark Shades</div>
     </div>
 
     <!-- 6. Sleepy -->
-    <div class="card" onclick="setFace('sleepy', 'Sleepy / Zzz', this)">
+    <div class="card" id="card_sleepy" onclick="setFace('sleepy', 'Sleepy / Zzz', this)">
       <span class="emoji">😴</span>
       <div class="title">Sleepy</div>
       <div class="desc">Sleeping Zzz</div>
     </div>
 
     <!-- 7. Angry -->
-    <div class="card" onclick="setFace('angry', 'Angry / Gussa', this)">
+    <div class="card" id="card_angry" onclick="setFace('angry', 'Angry / Grr', this)">
       <span class="emoji">😡</span>
       <div class="title">Angry</div>
       <div class="desc">Fierce Eyes</div>
     </div>
 
     <!-- 8. Sad -->
-    <div class="card" onclick="setFace('sad', 'Sad / Udas', this)">
+    <div class="card" id="card_sad" onclick="setFace('sad', 'Sad / Tearful', this)">
       <span class="emoji">😢</span>
       <div class="title">Sad</div>
       <div class="desc">Droopy Tear</div>
     </div>
 
     <!-- 9. Surprised -->
-    <div class="card" onclick="setFace('surprised', 'Shocked / Wow', this)">
+    <div class="card" id="card_surprised" onclick="setFace('surprised', 'Shocked / Wow', this)">
       <span class="emoji">😲</span>
       <div class="title">Shocked</div>
       <div class="desc">Huge Eyes</div>
     </div>
 
     <!-- 10. Laughing -->
-    <div class="card" onclick="setFace('laughing', 'Laughing / XD', this)">
+    <div class="card" id="card_laughing" onclick="setFace('laughing', 'Laughing / XD', this)">
       <span class="emoji">😆</span>
       <div class="title">Laughing</div>
       <div class="desc">XD Giggle</div>
     </div>
 
     <!-- 11. Confused -->
-    <div class="card" onclick="setFace('confused', 'Confused / Thinking', this)">
+    <div class="card" id="card_confused" onclick="setFace('confused', 'Confused / Thinking', this)">
       <span class="emoji">🤨</span>
       <div class="title">Confused</div>
       <div class="desc">Raised Eyebrow</div>
     </div>
 
     <!-- 12. Dizzy -->
-    <div class="card" onclick="setFace('dizzy', 'Dizzy / Knockout', this)">
+    <div class="card" id="card_dizzy" onclick="setFace('dizzy', 'Dizzy / Knockout', this)">
       <span class="emoji">😵</span>
       <div class="title">Dizzy</div>
       <div class="desc">XX Knockout</div>
@@ -551,28 +552,28 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     </div>
 
     <!-- Diwali Celebration -->
-    <div class="card" onclick="setFace('diwali', 'Diwali 🪔', this)" style="background: linear-gradient(135deg, rgba(255,165,0,0.2), rgba(255,215,0,0.15)); border-color: rgba(255,165,0,0.4);">
+    <div class="card" id="card_diwali" onclick="setFace('diwali', 'Diwali 🪔', this)" style="background: linear-gradient(135deg, rgba(255,165,0,0.2), rgba(255,215,0,0.15)); border-color: rgba(255,165,0,0.4);">
       <span class="emoji">🪔</span>
       <div class="title" style="color:#fbbf24;">Diwali</div>
       <div class="desc">Diya & Rangoli</div>
     </div>
 
     <!-- Ram Ji -->
-    <div class="card" onclick="setFace('ram', 'Jai Shri Ram 🏹', this)" style="background: linear-gradient(135deg, rgba(255,140,0,0.2), rgba(255,69,0,0.15)); border-color: rgba(255,140,0,0.4);">
+    <div class="card" id="card_ram" onclick="setFace('ram', 'Jai Shri Ram 🏹', this)" style="background: linear-gradient(135deg, rgba(255,140,0,0.2), rgba(255,69,0,0.15)); border-color: rgba(255,140,0,0.4);">
       <span class="emoji">🏹</span>
       <div class="title" style="color:#fb923c;">Ram Ji</div>
       <div class="desc">Jai Shri Ram</div>
     </div>
 
     <!-- Fireworks/Patake -->
-    <div class="card" onclick="setFace('fireworks', 'Fireworks 🎆', this)" style="background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(245,158,11,0.15)); border-color: rgba(239,68,68,0.4);">
+    <div class="card" id="card_fireworks" onclick="setFace('fireworks', 'Fireworks 🎆', this)" style="background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(245,158,11,0.15)); border-color: rgba(239,68,68,0.4);">
       <span class="emoji">🎆</span>
       <div class="title" style="color:#f87171;">Patake</div>
       <div class="desc">Skyshot & Fireworks</div>
     </div>
 
     <!-- 14. Torch Mode (Flashlight - All Pixels Full Brightness) -->
-    <div class="card test-card" onclick="setFace('torch', 'Torch (Full Light) 🔦', this)" style="background: linear-gradient(135deg, rgba(254, 240, 138, 0.2), rgba(250, 204, 21, 0.25)); border-color: rgba(250, 204, 21, 0.6);">
+    <div class="card test-card" id="card_torch" onclick="setFace('torch', 'Torch (Full Light) 🔦', this)" style="background: linear-gradient(135deg, rgba(254, 240, 138, 0.2), rgba(250, 204, 21, 0.25)); border-color: rgba(250, 204, 21, 0.6);">
       <span class="emoji">🔦</span>
       <div>
         <div class="title" style="color:#fef08a;">Torch Mode (Full Light)</div>
@@ -769,8 +770,46 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       var items = currentPlaylist.map(function(item) {
         return item.face + ':' + item.duration;
       }).join(',');
+      var badge = document.getElementById('slideSavedBadge');
+      if (badge) badge.innerText = 'Saving...';
       fetch('/setslides?active=' + (isSlideshowActive ? '1' : '0') + '&items=' + encodeURIComponent(items))
-        .catch(function(e) { console.error('Slideshow update failed:', e); });
+        .then(function() {
+          if (badge) {
+            badge.innerText = 'Saved ✓';
+            setTimeout(function() { if (badge) badge.innerText = ''; }, 2000);
+          }
+        })
+        .catch(function(e) {
+          console.error('Slideshow update failed:', e);
+          if (badge) badge.innerText = 'Error';
+        });
+    }
+
+    function loadSavedSlides() {
+      fetch('/getslides')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data) {
+            if (Array.isArray(data.slides) && data.slides.length > 0) {
+              currentPlaylist = data.slides;
+            }
+            isSlideshowActive = !!data.active;
+            renderPlaylistUI();
+            updateSlideshowUI();
+
+            if (!isSlideshowActive && data.currentFace) {
+              document.querySelectorAll('.card').forEach(function(c) { c.classList.remove('selected'); });
+              var card = document.getElementById('card_' + data.currentFace);
+              if (card) card.classList.add('selected');
+              var curLbl = document.getElementById('currentLabel');
+              if (curLbl) curLbl.innerText = data.currentFace.toUpperCase() + ' (LOCKED)';
+            }
+          }
+        })
+        .catch(function(err) {
+          console.log('Error loading saved slides:', err);
+          renderPlaylistUI();
+        });
     }
 
     function syncTimeWithDevice() {
@@ -842,7 +881,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
     }
 
     window.addEventListener('DOMContentLoaded', function() {
-      renderPlaylistUI();
+      loadSavedSlides();
       syncTimeWithDevice();
       loadSavedBday();
       setInterval(syncTimeWithDevice, 30000);
@@ -3123,6 +3162,20 @@ void handleSetSlides() {
   server.send(200, "text/plain", "OK: Slides Updated & Saved");
 }
 
+// Get Current Slideshow & Active Mode (For Web UI sync across reboots & reloads)
+void handleGetSlides() {
+  String json = "{\"active\":";
+  json += (slideshowActive ? "true" : "false");
+  json += ",\"currentFace\":\"" + currentFace + "\"";
+  json += ",\"slides\":[";
+  for (int i = 0; i < playlistCount; i++) {
+    if (i > 0) json += ",";
+    json += "{\"face\":\"" + playlist[i].face + "\",\"duration\":" + String(playlist[i].durationSec) + "}";
+  }
+  json += "]}";
+  server.send(200, "application/json", json);
+}
+
 
 // Handle Time Sync from User Phone / Browser
 void handleSyncTime() {
@@ -3251,6 +3304,7 @@ void setup() {
   server.on("/", HTTP_GET, handleRoot);
   server.on("/set", HTTP_GET, handleSetFace);
   server.on("/setslides", HTTP_GET, handleSetSlides);
+  server.on("/getslides", HTTP_GET, handleGetSlides);
   server.on("/synctime", HTTP_GET, handleSyncTime);
   server.on("/setbday", HTTP_GET, handleSetBday);
   server.on("/getbday", HTTP_GET, []() {
